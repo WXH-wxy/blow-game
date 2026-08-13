@@ -66,6 +66,36 @@ button.mini:active { background:rgba(255,255,255,.45); }
   background:rgba(0,0,0,.55); padding:6px 9px; border-radius:8px;
 }
 
+/* ---------- 选关首页 ---------- */
+.mode-switch {
+  display:flex; gap:4px; background:rgba(255,255,255,.14);
+  border-radius:14px; padding:4px; width:min(320px, 82%);
+}
+.mode-btn {
+  flex:1; padding:9px 0; border:none; border-radius:11px;
+  background:transparent; color:#fff; font-size:14px; font-weight:600; cursor:pointer;
+}
+.mode-btn.active { background:#fff; color:#1e3a5f; box-shadow:0 2px 8px rgba(0,0,0,.2); }
+
+.level-grid {
+  display:flex; flex-direction:column; gap:10px;
+  width:min(340px, 86%); max-height:52vh; overflow-y:auto; padding:2px;
+}
+.level-card {
+  display:flex; align-items:center; gap:12px; flex-shrink:0;
+  background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.28);
+  border-radius:16px; padding:12px 14px; color:#fff; text-align:left;
+  cursor:pointer; backdrop-filter:blur(4px); font-family:inherit;
+}
+.level-card:active { transform:scale(.98); }
+.level-card .l-emoji { font-size:30px; line-height:1; }
+.level-card .l-info { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.level-card .l-name { font-size:15px; font-weight:700; }
+.level-card .l-desc { font-size:12px; opacity:.85; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.level-card .l-status { margin-left:auto; font-size:18px; flex-shrink:0; }
+.level-card.locked { opacity:.55; cursor:default; }
+.level-card.locked:active { transform:none; }
+
 /* ---------- 全屏界面 ---------- */
 .screen {
   position:fixed; inset:0; z-index:20;

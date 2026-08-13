@@ -1113,6 +1113,21 @@ let totalTime = 0;
 let totalGone = 0;
 let maxWindAll = 0;
 let autoT = 0;
+let pendingLevel = 0;       // 选关页点选的关卡
+let inputPref = 'mic';      // 首页输入模式选择：mic | demo
+let micReady = false;       // 麦克风已初始化并校准过（会话内复用）
+const LEVEL_ICONS = ['🌿', '🌳', '🌊', '❓', '❓'];
+const DONE_KEY = 'blowGame.done'; // 已通关关卡（本地存档）
+function getDone() {
+  try { return JSON.parse(localStorage.getItem(DONE_KEY) || '[]'); } catch (e) { return []; }
+}
+function setDone(i) {
+  const d = getDone();
+  if (!d.includes(i)) {
+    d.push(i);
+    try { localStorage.setItem(DONE_KEY, JSON.stringify(d)); } catch (e) {}
+  }
+}
 const AUTOWIND = new URLSearchParams(location.search).has('autowind');
 // 合成麦克风：模拟白噪声吹气信号，端到端验证"拾音→风力→物理"整条链路（测试用）
 const FAKEMIC = new URLSearchParams(location.search).has('fakemic');
@@ -1150,10 +1165,16 @@ function checkWin() {
   totalTime += timeElapsed;
   totalGone += level.items.length;
   sfx.jingle();
-  const next = levelIdx + 1;
-  if (next < LEVELS.length && !LEVELS[next].placeholder) {
-    toast('🎉 过关！进入下一关');
-    setTimeout(() => startLevel(next), 1500);
+  setDone(levelIdx);
+  if (AUTOWIND) {
+    // 自动化测试：自动推进到下一关
+    const next = levelIdx + 1;
+    if (next < LEVELS.length && !LEVELS[next].placeholder) {
+      toast('🎉 过关！进入下一关');
+      setTimeout(() => startLevel(next), 1500);
+    } else {
+      setTimeout(showWin, 900);
+    }
   } else {
     setTimeout(showWin, 900);
   }
@@ -1168,12 +1189,18 @@ function showWin() {
     `💨 最大风力 ${Math.round(maxWindAll * 100)}%<br>` +
     `🎈 吹飞物品 ${totalGone} 件` +
     (pending > 0 ? `<br><span style="opacity:.75">🎬 还有 ${pending} 个场景制作中，敬请期待！</span>` : '');
+  // 下一关按钮：有后续可玩场景才显示
+  const next = levelIdx + 1;
+  const hasNext = next < LEVELS.length && !LEVELS[next].placeholder;
+  $('#btnNext').classList.toggle('hidden', !hasNext);
+  if (hasNext) $('#btnNext').textContent = `下一关 · ${LEVELS[next].name}`;
   showScreen('win');
 }
 function showStart() {
   state = 'start';
   level = null;
   $('#demoHint').classList.add('hidden');
+  buildLevelGrid();
   showScreen('start');
 }
 
@@ -1193,32 +1220,66 @@ function toast(msg) {
 }
 
 /* ==================== 启动流程 ==================== */
+function setModePref(m) {
+  inputPref = m;
+  $('#modeMic').classList.toggle('active', m === 'mic');
+  $('#modeDemo').classList.toggle('active', m === 'demo');
+}
+function buildLevelGrid() {
+  const grid = $('#levelGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  const done = getDone();
+  LEVELS.forEach((L, i) => {
+    const card = document.createElement('button');
+    card.className = 'level-card' + (L.placeholder ? ' locked' : '');
+    const emoji = L.placeholder ? '🔒' : LEVEL_ICONS[i];
+    const desc = L.placeholder ? '敬请期待' : L.desc;
+    const status = L.placeholder ? '' : (done.includes(i) ? '✅' : '');
+    card.innerHTML =
+      `<span class="l-emoji">${emoji}</span>` +
+      `<span class="l-info"><span class="l-name">${L.name}</span><span class="l-desc">${desc}</span></span>` +
+      `<span class="l-status">${status}</span>`;
+    card.addEventListener('click', () => selectLevel(i));
+    grid.appendChild(card);
+  });
+}
+function selectLevel(i) {
+  if (i < 0 || i >= LEVELS.length) return;
+  if (LEVELS[i].placeholder) { toast('🔒 敬请期待'); return; }
+  pendingLevel = i;
+  if (inputPref === 'demo') startDemo();
+  else startWithMic();
+}
 async function startWithMic() {
   sfx.init();
-  showScreen('cal');
-  const setUI = ({ text, progress, level }) => {
-    $('#calTitle').textContent = text;
-    $('#calHint').textContent = `当前音量 ${Math.round(clamp(level / 0.3, 0, 1) * 100)}%`;
-    $('#calFill').style.width = `${clamp(progress, 0, 1) * 100}%`;
-  };
-  try {
-    await input.initMic();
-  } catch (e) {
-    toast('无法使用麦克风，已切换到演示模式');
-    input.setDemo();
-    $('#demoHint').classList.remove('hidden');
-    startLevel(0);
-    return;
+  if (!micReady) {
+    showScreen('cal');
+    const setUI = ({ text, progress, level }) => {
+      $('#calTitle').textContent = text;
+      $('#calHint').textContent = `当前音量 ${Math.round(clamp(level / 0.3, 0, 1) * 100)}%`;
+      $('#calFill').style.width = `${clamp(progress, 0, 1) * 100}%`;
+    };
+    try {
+      await input.initMic();
+    } catch (e) {
+      toast('无法使用麦克风，已切换到演示模式');
+      input.setDemo();
+      $('#demoHint').classList.remove('hidden');
+      startLevel(pendingLevel);
+      return;
+    }
+    await input.calibrate(setUI);
+    await new Promise(r => setTimeout(r, 700)); // 让"校准完成"停留一下
+    micReady = true;
   }
-  await input.calibrate(setUI);
-  await new Promise(r => setTimeout(r, 700)); // 让"校准完成"停留一下
-  startLevel(0);
+  startLevel(pendingLevel);
 }
 function startDemo() {
   sfx.init();
   input.setDemo();
   $('#demoHint').classList.remove('hidden');
-  startLevel(0);
+  startLevel(pendingLevel);
 }
 async function recalibrate() {
   if (input.mode !== 'mic') { toast('演示模式无需校准'); return; }
@@ -1347,13 +1408,14 @@ function loop(t) {
 
 /* ==================== 事件绑定 ==================== */
 function bindUI() {
-  $('#btnMic').addEventListener('click', startWithMic);
-  $('#btnDemo').addEventListener('click', startDemo);
+  $('#modeMic').addEventListener('click', () => setModePref('mic'));
+  $('#modeDemo').addEventListener('click', () => setModePref('demo'));
   $('#btnRestart').addEventListener('click', () => state === 'playing' && startLevel(levelIdx));
   $('#btnRecal').addEventListener('click', recalibrate);
   $('#btnMenu').addEventListener('click', showStart);
   $('#btnMenu2').addEventListener('click', showStart);
-  $('#btnAgain').addEventListener('click', () => { totalTime = 0; totalGone = 0; maxWindAll = 0; startLevel(0); });
+  $('#btnNext').addEventListener('click', () => startLevel(levelIdx + 1));
+  $('#btnAgain').addEventListener('click', () => startLevel(levelIdx));
   $('#btnDebug').addEventListener('click', () => $('#debug').classList.toggle('hidden'));
 
   // 演示模式输入：按住屏幕 / 空格 = 吹气
@@ -1388,6 +1450,7 @@ window.addEventListener('error', e => {
   try {
     resize();
     bindUI();
+    buildLevelGrid();
     if (AUTOWIND) { // 自动化测试：直接进入演示模式
       input.setDemo();
       startLevel(0);

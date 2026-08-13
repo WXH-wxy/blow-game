@@ -40,13 +40,15 @@
 
 <div id="debug" class="hidden"></div>
 
-<!-- ===== 开始菜单 ===== -->
+<!-- ===== 首页：选关 ===== -->
 <div id="screen-start" class="screen">
   <h1>🌬️ 大风起兮</h1>
-  <p class="sub">把手机举到嘴边，<br>用力对麦克风吹气！</p>
-  <p class="sub2">吹得越猛，风越大。<br>把树叶、草帽、雨伞…<br>还有抱着树的人，统统吹上天！</p>
-  <button id="btnMic" class="big">🎤 用麦克风吹气</button>
-  <button id="btnDemo" class="big ghost">👆 演示模式（按住 = 吹气）</button>
+  <p class="sub">对麦克风吹气，把东西吹上天！<br>吹得越猛，风越大。</p>
+  <div id="modeSwitch" class="mode-switch">
+    <button id="modeMic" class="mode-btn active">🎤 麦克风</button>
+    <button id="modeDemo" class="mode-btn">👆 演示</button>
+  </div>
+  <div id="levelGrid" class="level-grid"></div>
   <p class="hint">需要麦克风权限 · iPhone 麦克风在手机底部</p>
 </div>
 
@@ -61,8 +63,9 @@
 <div id="screen-win" class="screen hidden">
   <h1>🎉 挑战成功！</h1>
   <div id="winStats" class="stats"></div>
-  <button id="btnAgain" class="big">再来一次</button>
-  <button id="btnMenu2" class="big ghost">返回菜单</button>
+  <button id="btnNext" class="big">下一关</button>
+  <button id="btnAgain" class="big ghost">再来一次</button>
+  <button id="btnMenu2" class="big ghost">返回选关</button>
 </div>
 
 <div id="toast"></div>
