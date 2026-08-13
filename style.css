@@ -38,6 +38,18 @@ button.mini:active { background:rgba(255,255,255,.45); }
   display:flex; align-items:center; gap:10px;
   background:rgba(0,0,0,.30); border-radius:18px; padding:10px 14px; backdrop-filter:blur(4px);
 }
+/* 麦克风拾音电平表（排障用，仅麦克风模式显示） */
+#micRow {
+  display:flex; align-items:center; gap:10px;
+  background:rgba(0,0,0,.30); border-radius:14px; padding:6px 14px;
+  margin-bottom:6px; width:fit-content; margin-left:auto; margin-right:auto; min-width:46%;
+}
+#micRow .wind-bar.slim { height:8px; min-width:120px; }
+#micFill {
+  height:100%; width:0%; border-radius:9px;
+  background:linear-gradient(90deg,#9e9e9e,#4fc3f7); transition:width .05s linear;
+}
+#micRow.active #micFill { background:linear-gradient(90deg,#4fc3f7,#66bb6a); }
 .wind-label { color:#fff; font-size:13px; font-weight:700; opacity:.9; }
 .wind-bar { flex:1; height:18px; background:rgba(255,255,255,.18); border-radius:9px; overflow:hidden; }
 #windFill {

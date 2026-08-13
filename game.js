@@ -21,8 +21,10 @@
 const TUNE = {
   GRAVITY: 300,             // 重力加速度 px/s²
   WIND_ACC: 1200,           // 基础风加速度（乘以 面积/质量）
-  HF_START_HZ: 1200,        // 高频特征起点 Hz（吹气噪声集中在这里以上）
-  HF_MIN: 0.35,             // 高频占比低于此值 → 按说话处理，风力打折
+  GATE_MIN: 0.02,           // 风力下限：低于此值视为无风
+  SPEECH_LO: 0.35,          // 差分RMS/原始RMS 低于此值 → 判定为说话，开始抑制
+  SPEECH_HI: 0.75,          // 高于此值 → 判定为吹气（宽带噪声），不抑制
+  GAMMA: 0.85,              // 低风区增益曲线（<1 小吹也有反馈）
   ATTACK: 12,               // 风力上升平滑速率 1/s（吹气反应快）
   RELEASE: 4,               // 风力回落平滑速率 1/s（停吹后缓慢平息）
   LIFT_RATIO: 0.6,          // 起飞阈值：风力加速度 > 重力×此值 才离地
@@ -113,15 +115,26 @@ const sfx = {
 const input = {
   mode: 'off',        // 'off' | 'mic' | 'demo'
   analyser: null, buf: null, freq: null, hfBin: 0,
-  rms: 0,             // 当前音量（0~1 归一化）
-  hfRatio: 0,         // 高频能量占比（吹气特征）
+  rms: 0,             // 原始音量 RMS
+  hf: 0,              // 一阶差分 RMS（高频强调，吹气特征）
+  hfRatio: 0,         // 频谱高频占比（调试用）
+  level: 0,           // 综合电平（rms 与 hf 取大，校准与风力共用）
   raw: 0,             // 归一化风力（未平滑）
   wind: 0,            // 平滑后的风力（游戏用）
   calFloor: 0.018,    // 校准：环境底噪
   calPeak: 0.40,      // 校准：吹气峰值
   demoHeld: false,
+  fake: false,        // 合成麦克风（fakemic 测试模式）
+  fakeT: 0,
 
   async initMic() {
+    // 测试模式：不碰真实麦克风，合成白噪声信号
+    if (FAKEMIC) {
+      this.fake = true;
+      this.mode = 'mic';
+      toast('🎤 测试用合成麦克风已开启');
+      return;
+    }
     // 关掉降噪/回声消除/自动增益 —— 吹气检测需要原始电平
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
@@ -134,8 +147,9 @@ const input = {
     src.connect(this.analyser);
     this.buf = new Uint8Array(this.analyser.fftSize);
     this.freq = new Uint8Array(this.analyser.frequencyBinCount);
-    this.hfBin = Math.floor(TUNE.HF_START_HZ / (ctx.sampleRate / this.analyser.fftSize));
+    this.hfBin = Math.floor(1200 / (ctx.sampleRate / this.analyser.fftSize));
     this.mode = 'mic';
+    toast('🎤 麦克风已开启，对着手机底部吹气试试');
   },
 
   setDemo() {
@@ -144,55 +158,89 @@ const input = {
   },
 
   update(dt) {
-    if (this.mode === 'mic') this.sampleMic();
+    if (this.mode === 'mic') this.sampleMic(dt);
     else if (this.mode === 'demo') {
       const target = this.demoHeld ? 1 : 0;
       this.wind = smooth(this.wind, target, dt, TUNE.ATTACK, TUNE.RELEASE);
       this.raw = this.wind;
-      this.rms = this.wind * this.calPeak;
+      this.level = this.wind * this.calPeak;
+      this.rms = this.level;
+      this.hf = this.level;
       this.hfRatio = 0.8;
     }
   },
 
-  sampleMic() {
-    // 音量（时域 RMS）
-    this.analyser.getByteTimeDomainData(this.buf);
-    let sum = 0;
-    for (let i = 0; i < this.buf.length; i++) {
-      const s = (this.buf[i] - 128) / 128;
-      sum += s * s;
+  sampleMic(dt) {
+    let rms, hf;
+    if (this.fake) {
+      // 合成信号：先安静 1.5s（覆盖安静校准期），之后 5 秒循环（吹 3 秒 / 停 2 秒），白噪声特征 dR≈1.41
+      this.fakeT += dt;
+      let amp;
+      if (this.fakeT < 1.5) amp = 0.015;
+      else { const ph = (this.fakeT - 1.5) % 5; amp = ph < 3 ? 0.32 : 0.015; }
+      rms = amp;
+      hf = amp * 1.41;
+      this.hfRatio = 0.8;
+    } else {
+      // 时域分析
+      this.analyser.getByteTimeDomainData(this.buf);
+      const n = this.buf.length;
+      let sum = 0, dsum = 0;
+      let prev = (this.buf[0] - 128) / 128;
+      for (let i = 0; i < n; i++) {
+        const s = (this.buf[i] - 128) / 128;
+        sum += s * s;
+        const d = s - prev;
+        dsum += d * d;
+        prev = s;
+      }
+      rms = Math.sqrt(sum / n);
+      hf = Math.sqrt(dsum / n); // 差分 RMS：白噪声≈rms×1.41，低频主导的信号≈rms×0.5
+      // 频谱高频占比（只作调试参考）
+      this.analyser.getByteFrequencyData(this.freq);
+      let tot = 0, hi = 0;
+      for (let i = 0; i < this.freq.length; i++) {
+        const v = this.freq[i];
+        tot += v;
+        if (i >= this.hfBin) hi += v;
+      }
+      this.hfRatio = tot > 0 ? hi / tot : 0;
     }
-    this.rms = Math.sqrt(sum / this.buf.length);
-    // 高频占比（频域）
-    this.analyser.getByteFrequencyData(this.freq);
-    let tot = 0, hi = 0;
-    for (let i = 0; i < this.freq.length; i++) {
-      const v = this.freq[i];
-      tot += v;
-      if (i >= this.hfBin) hi += v;
-    }
-    this.hfRatio = tot > 0 ? hi / tot : 0;
-    // 归一化风力
-    let raw = (this.rms - this.calFloor) / Math.max(0.05, this.calPeak - this.calFloor);
+    this.rms = rms;
+    this.hf = hf;
+    // 综合电平：原始与差分取大，手机麦克风的低频风声和高频噪声都能抓到
+    this.level = Math.max(rms, hf * 0.7);
+    // 归一化
+    let raw = (this.level - this.calFloor) / Math.max(0.04, this.calPeak - this.calFloor);
     raw = clamp(raw, 0, 1);
-    if (raw < 0.03) raw = 0;                     // 噪音门限
-    raw *= clamp(this.hfRatio / TUNE.HF_MIN, 0, 1); // 说话抑制
+    if (raw < TUNE.GATE_MIN) raw = 0;
+    // 说话抑制：说话以低频谐波为主（差分RMS远低于原始RMS），吹气两者接近
+    const dRatio = hf / Math.max(rms, 1e-6);
+    const sp = clamp((dRatio - TUNE.SPEECH_LO) / (TUNE.SPEECH_HI - TUNE.SPEECH_LO), 0.3, 1);
+    raw *= sp;
+    // 低风区增益：小吹气也有可感知反馈
+    raw = Math.pow(raw, TUNE.GAMMA);
     this.raw = raw;
     this.wind = smooth(this.wind, raw, dt, TUNE.ATTACK, TUNE.RELEASE);
   },
 
-  // 校准：安静采样 → 用力吹采样。onUI({text, progress, rms}) 驱动校准界面
+  // 校准：安静采样 → 用力吹采样。onUI({text, progress, level}) 驱动校准界面
   async calibrate(onUI) {
-    onUI({ text: '保持安静…', progress: 0, rms: 0 });
+    onUI({ text: '保持安静…', progress: 0, level: 0 });
     const quiet = await this._collect(TUNE.CAL_QUIET, onUI);
-    this.calFloor = Math.max(0.01, quiet.p90 * 1.3 + 0.006);
-    onUI({ text: '现在用力对麦克风吹气！', progress: 0.5, rms: 0 });
+    this.calFloor = Math.max(0.008, quiet.p90 * 1.15 + 0.004);
+    onUI({ text: '现在用力对麦克风吹气！', progress: 0.5, level: 0 });
     const blow = await this._collect(TUNE.CAL_BLOW, onUI);
-    this.calPeak = Math.max(0.12, blow.max);
-    const ok = blow.max > quiet.p90 + 0.04;
+    // 安静期若误采到吹气声，底噪会被拉高 → 退回用中位数估计
+    if (this.calFloor > blow.p90 * 0.5) {
+      this.calFloor = Math.max(0.008, quiet.median * 1.15 + 0.004);
+    }
+    // p95 抗偶发爆音；×1.3 留余量；下限保证弱吹气也有灵敏度
+    this.calPeak = Math.max(0.06, Math.min(blow.p95 * 1.3, blow.max));
+    const ok = blow.p90 > quiet.p95 + 0.008;
     onUI({
       text: ok ? '校准完成！开始游戏！' : '没检测到吹气，先用默认灵敏度开始吧',
-      progress: 1, rms: 0,
+      progress: 1, level: 0,
     });
     return ok;
   },
@@ -203,16 +251,17 @@ const input = {
       const arr = [];
       const t0 = now();
       const tick = () => {
-        if (this.mode !== 'mic') { resolve({ min: 0, max: 0.3, p90: 0.01, median: 0.005 }); return; }
-        this.sampleMic();
-        arr.push(this.rms);
-        if (onUI) onUI({ progress: (now() - t0) / (seconds * 1000), rms: this.rms });
+        if (this.mode !== 'mic') { resolve({ min: 0, max: 0.3, p90: 0.01, p95: 0.01, median: 0.005 }); return; }
+        this.sampleMic(1 / 60);
+        arr.push(this.level);
+        if (onUI) onUI({ progress: (now() - t0) / (seconds * 1000), level: this.level });
         if (now() - t0 < seconds * 1000) requestAnimationFrame(tick);
         else {
           arr.sort((a, b) => a - b);
           resolve({
             min: arr[0], max: arr[arr.length - 1],
             p90: arr[Math.floor(arr.length * 0.9)],
+            p95: arr[Math.floor(arr.length * 0.95)],
             median: arr[Math.floor(arr.length / 2)],
           });
         }
@@ -626,6 +675,8 @@ let totalGone = 0;
 let maxWindAll = 0;
 let autoT = 0;
 const AUTOWIND = new URLSearchParams(location.search).has('autowind');
+// 合成麦克风：模拟白噪声吹气信号，端到端验证"拾音→风力→物理"整条链路（测试用）
+const FAKEMIC = new URLSearchParams(location.search).has('fakemic');
 
 function startLevel(i) {
   levelIdx = i;
@@ -698,9 +749,9 @@ function toast(msg) {
 async function startWithMic() {
   sfx.init();
   showScreen('cal');
-  const setUI = ({ text, progress, rms }) => {
+  const setUI = ({ text, progress, level }) => {
     $('#calTitle').textContent = text;
-    $('#calHint').textContent = `当前音量 ${Math.round(rms * 100)}%`;
+    $('#calHint').textContent = `当前音量 ${Math.round(clamp(level / 0.3, 0, 1) * 100)}%`;
     $('#calFill').style.width = `${clamp(progress, 0, 1) * 100}%`;
   };
   try {
@@ -725,9 +776,9 @@ function startDemo() {
 async function recalibrate() {
   if (input.mode !== 'mic') { toast('演示模式无需校准'); return; }
   showScreen('cal');
-  await input.calibrate(({ text, progress, rms }) => {
+  await input.calibrate(({ text, progress, level }) => {
     $('#calTitle').textContent = text;
-    $('#calHint').textContent = `当前音量 ${Math.round(rms * 100)}%`;
+    $('#calHint').textContent = `当前音量 ${Math.round(clamp(level / 0.3, 0, 1) * 100)}%`;
     $('#calFill').style.width = `${clamp(progress, 0, 1) * 100}%`;
   });
   showScreen('hud');
@@ -741,6 +792,15 @@ function updateHUD() {
   fill.style.width = `${w * 100}%`;
   $('#windVal').textContent = `${Math.round(w * 100)}%`;
   $('#wind-meter').classList.toggle('hot', w > 0.7);
+  // 麦克风电平表：仅麦克风模式下显示，直接反映拾音（排障利器）
+  const micRow = $('#micRow');
+  const isMic = input.mode === 'mic';
+  micRow.classList.toggle('hidden', !isMic);
+  if (isMic) {
+    const lv = clamp(input.level / Math.max(0.05, input.calPeak), 0, 1);
+    $('#micFill').style.width = `${lv * 100}%`;
+    micRow.classList.toggle('active', input.raw > 0.1);
+  }
   if (state === 'playing' && level) {
     const gone = level.items.filter(o => o.gone).length;
     $('#goalText').textContent = `已吹飞 ${gone} / ${level.items.length}`;
@@ -749,9 +809,11 @@ function updateHUD() {
   // 调试面板
   const dbg = $('#debug');
   if (!dbg.classList.contains('hidden') && !dbg.dataset.err) {
+    const dRatio = input.hf / Math.max(input.rms, 1e-6);
     dbg.textContent =
       `模式: ${input.mode}\n` +
-      `rms: ${input.rms.toFixed(3)}  hf: ${input.hfRatio.toFixed(2)}\n` +
+      `rms: ${input.rms.toFixed(3)}  hf: ${input.hf.toFixed(3)}  dR: ${dRatio.toFixed(2)}\n` +
+      `level: ${input.level.toFixed(3)}  hf占比: ${input.hfRatio.toFixed(2)}\n` +
       `风力: ${input.wind.toFixed(2)}  raw: ${input.raw.toFixed(2)}\n` +
       `底噪: ${input.calFloor.toFixed(3)}  峰值: ${input.calPeak.toFixed(2)}\n` +
       `状态: ${state}${levelPaused ? '(暂停)' : ''}`;

@@ -1,7 +1,8 @@
-# 极简静态文件服务器（本机没有 node/python 时的兜底方案）
-# 用法: powershell -ExecutionPolicy Bypass -File serve.ps1
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path  # 服务脚本所在目录
+# Minimal static file server (fallback when node/python is unavailable)
+# Usage: powershell -ExecutionPolicy Bypass -File serve.ps1
+$root = Split-Path -Parent $MyInvocation.MyCommand.Path  # serve the script's own folder
 $port = 8123
+
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$port/")
 $listener.Start()
@@ -34,7 +35,7 @@ while ($listener.IsListening) {
       $res.StatusCode = 404
     }
   } catch {
-    # 忽略单个请求错误，继续服务
+    # ignore per-request errors, keep serving
   } finally {
     try { $res.Close() } catch {}
   }
