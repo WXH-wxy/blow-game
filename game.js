@@ -293,7 +293,7 @@ function updateParticles(dt, wind) {
     parts.leaves.push({
       x: rand(0, W), y: H + 10, vy: rand(20, 45) + wind * 120, vx: rand(-12, 12),
       r: rand(2.5, 5), rot: rand(0, 6.28), vrot: rand(-2, 2),
-      hue: Math.random() < 0.5 ? '#7ec850' : '#d9a441',
+      hue: ['#8bc34a', '#ffd166', '#ff9f43', '#c9a227', '#7ec850'][Math.floor(Math.random() * 5)],
     });
   }
   for (const l of parts.leaves) {
@@ -782,7 +782,7 @@ function drawHair(ctx, t, blow, flap, color) {
 }
 
 /* ==================== 场景绘制 ==================== */
-let clouds = [], grass = [];
+let clouds = [], grass = [], flowers = [];
 function buildScenery() {
   const { W, H } = world;
   clouds = [];
@@ -792,6 +792,11 @@ function buildScenery() {
   grass = [];
   for (let i = 0; i < 70; i++) {
     grass.push({ x: rand(0, W), h: rand(6, 16), tilt: rand(-3, 3) });
+  }
+  flowers = [];
+  const flowerCols = ['#fff3e0', '#ffcdd2', '#e1f5fe', '#ffe082'];
+  for (let i = 0; i < 18; i++) {
+    flowers.push({ x: rand(0, W), y: rand(2, 30), c: flowerCols[i % flowerCols.length] });
   }
 }
 /* ==================== 场景绘制 ==================== */
@@ -810,56 +815,107 @@ function drawScene(ctx, t, wind) {
 }
 function paintVillage(ctx, t, wind) {
   const { W, H, groundY } = world;
-  // 天空
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#5fa8e8'); g.addColorStop(1, '#cfe9fb');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // 天空：深蓝 → 天蓝 → 暖白（多段渐变更有层次）
+  const g = ctx.createLinearGradient(0, 0, 0, groundY + 4);
+  g.addColorStop(0, '#3f8fd9');
+  g.addColorStop(0.45, '#6fb9ec');
+  g.addColorStop(0.78, '#b7e2f7');
+  g.addColorStop(1, '#eaf8ff');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, groundY + 4);
+  // 太阳 + 光晕
+  const sx = W * 0.78, sy = H * 0.11;
+  const halo = ctx.createRadialGradient(sx, sy, 4, sx, sy, 92);
+  halo.addColorStop(0, 'rgba(255,247,200,.95)');
+  halo.addColorStop(0.25, 'rgba(255,240,170,.42)');
+  halo.addColorStop(1, 'rgba(255,240,170,0)');
+  ctx.fillStyle = halo; ctx.fillRect(sx - 92, sy - 92, 184, 184);
+  ctx.fillStyle = '#fff7cf';
+  ctx.beginPath(); ctx.arc(sx, sy, 15, 0, Math.PI * 2); ctx.fill();
   // 云（随风飘）
   drawClouds(ctx, t, wind);
-  // 远山
-  ctx.fillStyle = '#a8cf96';
-  ctx.beginPath(); ctx.arc(W * 0.15, groundY + 40, W * 0.55, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = '#8ec46a';
-  ctx.beginPath(); ctx.arc(W * 0.85, groundY + 60, W * 0.6, Math.PI, 0); ctx.fill();
-  // 地面
-  ctx.fillStyle = '#7cb342'; ctx.fillRect(0, groundY, W, H - groundY);
-  ctx.fillStyle = '#689f38'; ctx.fillRect(0, groundY, W, 8);
-  ctx.strokeStyle = '#558b2f'; ctx.lineWidth = 1.5;
+  // 远山：两层 + 近地雾气
+  ctx.fillStyle = '#b9d6a4';
+  ctx.beginPath();
+  ctx.moveTo(0, groundY + 10);
+  ctx.quadraticCurveTo(W * 0.18, groundY - 64, W * 0.42, groundY - 22);
+  ctx.quadraticCurveTo(W * 0.68, groundY - 72, W, groundY - 26);
+  ctx.lineTo(W, groundY + 10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#93c47d';
+  ctx.beginPath();
+  ctx.moveTo(0, groundY + 12);
+  ctx.quadraticCurveTo(W * 0.3, groundY - 44, W * 0.6, groundY - 8);
+  ctx.quadraticCurveTo(W * 0.85, groundY - 48, W, groundY - 14);
+  ctx.lineTo(W, groundY + 12); ctx.closePath(); ctx.fill();
+  const mist = ctx.createLinearGradient(0, groundY - 30, 0, groundY + 4);
+  mist.addColorStop(0, 'rgba(255,255,255,0)');
+  mist.addColorStop(1, 'rgba(255,255,255,.5)');
+  ctx.fillStyle = mist; ctx.fillRect(0, groundY - 30, W, 34);
+  // 草地（渐变）
+  const lg = ctx.createLinearGradient(0, groundY, 0, H);
+  lg.addColorStop(0, '#8bc34a');
+  lg.addColorStop(0.25, '#7cb342');
+  lg.addColorStop(1, '#558b2f');
+  ctx.fillStyle = lg; ctx.fillRect(0, groundY, W, H - groundY);
+  // 草尖（随风吹拂）
+  ctx.strokeStyle = 'rgba(63,120,35,.85)'; ctx.lineWidth = 1.2;
+  const sway = wind * 7;
   for (const b of grass) {
     ctx.beginPath();
     ctx.moveTo(b.x, groundY + 4);
-    ctx.lineTo(b.x + b.tilt, groundY + 4 - b.h);
+    ctx.quadraticCurveTo(b.x + b.tilt * 0.5, groundY + 4 - b.h * 0.6, b.x + b.tilt + sway, groundY + 4 - b.h);
     ctx.stroke();
+  }
+  // 小花点缀
+  for (let i = 0; i < flowers.length; i++) {
+    const f = flowers[i];
+    ctx.fillStyle = f.c;
+    ctx.beginPath(); ctx.arc(f.x, groundY + f.y, 2.1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.9)';
+    ctx.beginPath(); ctx.arc(f.x, groundY + f.y, .9, 0, Math.PI * 2); ctx.fill();
   }
   // 树（守树人关）
   if (world.anchor && world.anchor.type === 'tree') drawTree(ctx, t, wind);
 }
 function drawClouds(ctx, t, wind) {
-  ctx.fillStyle = 'rgba(255,255,255,.85)';
   for (const c of clouds) {
+    const cx = c.x, cy = c.y, s = c.s;
+    ctx.save();
+    // 云下阴影（增加体积感）
+    ctx.fillStyle = 'rgba(110,150,190,.16)';
+    ctx.beginPath(); ctx.ellipse(cx + 5, cy + 7, 26 * s, 9 * s, 0, 0, Math.PI * 2); ctx.fill();
+    // 云朵主体（多弧拼合，更蓬松）
+    ctx.fillStyle = 'rgba(255,255,255,.94)';
     ctx.beginPath();
-    ctx.arc(c.x, c.y, 16 * c.s, 0, Math.PI * 2);
-    ctx.arc(c.x + 18 * c.s, c.y - 6 * c.s, 12 * c.s, 0, Math.PI * 2);
-    ctx.arc(c.x + 34 * c.s, c.y, 14 * c.s, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 15 * s, 0, Math.PI * 2);
+    ctx.arc(cx + 17 * s, cy - 6 * s, 12 * s, 0, Math.PI * 2);
+    ctx.arc(cx + 33 * s, cy, 14 * s, 0, Math.PI * 2);
+    ctx.arc(cx + 16 * s, cy + 5 * s, 13 * s, 0, Math.PI * 2);
     ctx.fill();
+    // 顶部高光
+    ctx.fillStyle = 'rgba(255,255,255,.55)';
+    ctx.beginPath(); ctx.ellipse(cx + 5 * s, cy - 2 * s, 20 * s, 6 * s, -.1, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 }
 /* ---------- 海滨城市：海 / 沙滩 / 建筑 / 海鸥 / 电线杆 ---------- */
 function paintSeaside(ctx, t, wind) {
   const { W, H, groundY } = world;
-  // 天空
+  // 天空：天蓝 → 地平线暖色（黄昏感）
   const g = ctx.createLinearGradient(0, 0, 0, groundY);
-  g.addColorStop(0, '#4fb2f2'); g.addColorStop(1, '#eaf9ff');
+  g.addColorStop(0, '#2f8fd6');
+  g.addColorStop(0.55, '#7cc8f2');
+  g.addColorStop(0.82, '#c9ecfa');
+  g.addColorStop(1, '#fff3d6');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  // 太阳
+  // 太阳 + 更大的光晕
   const sunX = W * 0.82, sunY = H * 0.15;
-  const rg = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, 70);
+  const rg = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, 95);
   rg.addColorStop(0, 'rgba(255,246,180,1)');
   rg.addColorStop(0.3, 'rgba(255,240,150,.55)');
   rg.addColorStop(1, 'rgba(255,240,150,0)');
-  ctx.fillStyle = rg; ctx.fillRect(sunX - 70, sunY - 70, 140, 140);
+  ctx.fillStyle = rg; ctx.fillRect(sunX - 95, sunY - 95, 190, 190);
   ctx.fillStyle = '#fff3b8';
-  ctx.beginPath(); ctx.arc(sunX, sunY, 20, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(sunX, sunY, 21, 0, Math.PI * 2); ctx.fill();
   // 云
   drawClouds(ctx, t, wind);
   // 海
@@ -867,6 +923,14 @@ function paintSeaside(ctx, t, wind) {
   const sg = ctx.createLinearGradient(0, horizon, 0, shore);
   sg.addColorStop(0, '#1f7fc4'); sg.addColorStop(1, '#57c2e6');
   ctx.fillStyle = sg; ctx.fillRect(0, horizon, W, shore - horizon);
+  // 海面阳光倒影（一条亮带，风越大越晃）
+  const refl = ctx.createLinearGradient(sunX - 34, horizon, sunX + 34, horizon);
+  refl.addColorStop(0, 'rgba(255,240,170,0)');
+  refl.addColorStop(0.5, `rgba(255,240,170,${0.22 + wind * 0.2})`);
+  refl.addColorStop(1, 'rgba(255,240,170,0)');
+  ctx.fillStyle = refl; ctx.fillRect(sunX - 34, horizon, 68, shore - horizon);
+  // 远帆船（缓慢移动）
+  drawBoat(ctx, t, wind);
   // 海浪（风越大越乱）
   ctx.strokeStyle = 'rgba(255,255,255,.65)';
   for (let i = 0; i < 3; i++) {
@@ -1045,16 +1109,57 @@ function drawTree(ctx, t, wind) {
   ctx.save();
   ctx.translate(anchor.x, groundY);
   ctx.rotate(sway * 0.4);
-  ctx.fillStyle = '#8d6e63';
-  ctx.fillRect(-9, -150, 18, 150); // 树干
-  ctx.fillStyle = '#4caf50';
+  // 树干（带渐变和树根）
+  const tg = ctx.createLinearGradient(-9, 0, 9, 0);
+  tg.addColorStop(0, '#6d4c41'); tg.addColorStop(0.5, '#8d6e63'); tg.addColorStop(1, '#5d4037');
+  ctx.fillStyle = tg;
   ctx.beginPath();
-  ctx.arc(-30, -170, 34, 0, Math.PI * 2);
-  ctx.arc(30, -175, 36, 0, Math.PI * 2);
-  ctx.arc(0, -205, 40, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#66bb6a';
-  ctx.beginPath(); ctx.arc(-16, -190, 18, 0, Math.PI * 2); ctx.fill();
+  ctx.moveTo(-9, 0); ctx.lineTo(-6, -150); ctx.lineTo(6, -150); ctx.lineTo(9, 0);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#4e342e';
+  ctx.beginPath(); ctx.ellipse(0, 2, 21, 7, 0, 0, Math.PI * 2); ctx.fill();
+  // 树冠（多层圆，更立体）
+  const blobs = [
+    [-34, -172, 30, '#3f8f3f'],
+    [30, -178, 32, '#357a35'],
+    [0, -208, 40, '#4caf50'],
+    [-16, -192, 20, '#66bb6a'],
+    [16, -196, 22, '#57a857'],
+    [0, -226, 24, '#6fc76f'],
+  ];
+  for (const [bx, by, br, col] of blobs) {
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+  }
+  // 树冠高光
+  ctx.fillStyle = 'rgba(255,255,255,.18)';
+  ctx.beginPath(); ctx.arc(-14, -206, 13, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawBoat(ctx, t, wind) {
+  const { W, H } = world;
+  const bx = (t * (6 + wind * 20)) % (W + 140) - 70;
+  const by = H * 0.42 + Math.sin(t / 900) * 2.5;
+  ctx.save();
+  ctx.translate(bx, by);
+  // 船身
+  ctx.fillStyle = '#7a4a2b';
+  ctx.beginPath();
+  ctx.moveTo(-15, 0); ctx.quadraticCurveTo(0, 9, 15, 0);
+  ctx.lineTo(11, 3); ctx.quadraticCurveTo(0, 11, -11, 3);
+  ctx.closePath(); ctx.fill();
+  // 帆
+  ctx.fillStyle = '#fff8f0';
+  ctx.beginPath();
+  ctx.moveTo(0, -26); ctx.lineTo(0, -2); ctx.quadraticCurveTo(9, -6, 8, -24);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,180,120,.6)';
+  ctx.beginPath();
+  ctx.moveTo(-1, -26); ctx.lineTo(-1, -2); ctx.quadraticCurveTo(-9, -5, -8, -23);
+  ctx.closePath(); ctx.fill();
+  // 桅杆
+  ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(0, 1); ctx.lineTo(0, -27); ctx.stroke();
   ctx.restore();
 }
 function drawGripBar(ctx, o, wind) {
@@ -1182,6 +1287,7 @@ function checkWin() {
 
 function showWin() {
   state = 'win';
+  confettiBurst(30);
   const mm = Math.floor(totalTime / 60), ss = Math.floor(totalTime % 60);
   const pending = LEVELS.filter(l => l.placeholder).length;
   $('#winStats').innerHTML =
@@ -1205,6 +1311,24 @@ function showStart() {
 }
 
 /* ==================== 界面切换 ==================== */
+// 通关彩带：在 winConfetti 容器里撒 DOM 粒子
+function confettiBurst(n = 26) {
+  const wrap = $('#winConfetti');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const emojis = ['🎉', '🎊', '✨', '⭐', '🌸', '🍃', '💨', '🎈'];
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('i');
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.left = `${Math.random() * 100}%`;
+    el.style.fontSize = `${14 + Math.random() * 20}px`;
+    el.style.animationDuration = `${2.2 + Math.random() * 2.4}s`;
+    el.style.animationDelay = `${Math.random() * 0.8}s`;
+    wrap.appendChild(el);
+  }
+  // 彩带掉落后清理
+  setTimeout(() => { wrap.innerHTML = ''; }, 5200);
+}
 function showScreen(name) { // 'start' | 'cal' | 'win' | 'hud'
   for (const id of ['screen-start', 'screen-cal', 'screen-win']) $(id).classList.add('hidden');
   if (name === 'hud') $('#hud').classList.remove('hidden');

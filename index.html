@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0e2038">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>大风起兮 · 吹风小游戏</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="style.css">
@@ -42,6 +44,16 @@
 
 <!-- ===== 首页：选关 ===== -->
 <div id="screen-start" class="screen">
+  <div class="deco" aria-hidden="true">
+    <span style="left:8%;  top:12%; font-size:30px; animation-duration:5.2s;">🍃</span>
+    <span style="left:16%; top:42%; font-size:22px; animation-duration:6.4s; animation-delay:.6s;">💨</span>
+    <span style="left:26%; top:68%; font-size:18px; animation-duration:5.8s; animation-delay:1.2s;">🌾</span>
+    <span style="left:70%; top:16%; font-size:26px; animation-duration:6s;  animation-delay:.4s;">🍃</span>
+    <span style="left:82%; top:46%; font-size:20px; animation-duration:5.4s; animation-delay:.9s;">✨</span>
+    <span style="left:74%; top:72%; font-size:24px; animation-duration:6.6s; animation-delay:1.5s;">🌊</span>
+    <span style="left:48%; top:6%;  font-size:20px; animation-duration:5s;  animation-delay:.2s;">☁️</span>
+    <span style="left:58%; top:84%; font-size:16px; animation-duration:6.2s; animation-delay:1s;">🍂</span>
+  </div>
   <h1>🌬️ 大风起兮</h1>
   <p class="sub">对麦克风吹气，把东西吹上天！<br>吹得越猛，风越大。</p>
   <div id="modeSwitch" class="mode-switch">
@@ -61,6 +73,7 @@
 
 <!-- ===== 通关 ===== -->
 <div id="screen-win" class="screen hidden">
+  <div id="winConfetti" class="confetti" aria-hidden="true"></div>
   <h1>🎉 挑战成功！</h1>
   <div id="winStats" class="stats"></div>
   <button id="btnNext" class="big">下一关</button>
