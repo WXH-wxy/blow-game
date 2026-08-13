@@ -417,9 +417,9 @@ class Person extends Obj {
     this.sweat = false;
     this.state = 'grip';    // grip | free | gone
     // 抱姿几何：不同形象/固定物站位略有差异
-    this.hugDX = this.look === 'woman' ? -10 : -14; // 相对固定物的横向偏移
-    this.hugY = this.look === 'woman' ? 30 : 24;    // 脚底到重心的距离
-    this.barY = this.look === 'woman' ? 58 : 66;    // 抓力条离重心的距离
+    this.hugDX = this.look === 'woman' ? -45 : -14; // 相对固定物的横向偏移（美女放大3倍后站远一些）
+    this.hugY = this.look === 'woman' ? 90 : 24;    // 脚底到重心的距离
+    this.barY = this.look === 'woman' ? 130 : 66;   // 抓力条离重心的距离
     this.pronoun = this.look === 'woman' ? '她' : '他';
   }
   update(dt, wind, onRegrip) {
@@ -624,7 +624,8 @@ function drawBeachBall(ctx, o) {
   ctx.restore();
 }
 
-/* ---------- 美女角色（连衣裙）：裙摆扬起、长发飘动 ---------- */
+/* ---------- 美女角色 v3（玛丽莲·梦露风）：白金卷发、白色挂脖裙、手按裙摆 ---------- */
+// 站姿：右臂高举扶住右侧电线杆，左臂按住身前被上升气流掀起的裙摆（经典"压裙"姿势）
 function drawWoman(ctx, o, t) {
   const wind = input.wind;
   const blow = clamp(wind * 1.4 + (o.state === 'free' ? 0.6 : 0), 0, 1); // 裙摆扬起程度 0~1
@@ -633,152 +634,344 @@ function drawWoman(ctx, o, t) {
   ctx.translate(o.x, o.y);
   ctx.rotate(o.rot);
   ctx.translate((Math.random() - 0.5) * o.shake * 3, 0);
+  ctx.scale(3, 3); // 角色放大3倍：更醒目，发量/五官细节更清楚
   ctx.lineCap = 'round';
 
-  const skin = '#f4d2b0';
-  const dress = '#fdfdfd', dressShade = '#e3e3ee';
-  const hairCol = '#4a3320';
+  const skin = '#f6d7c0', skinShade = '#e9c0a5', skinHi = '#fdeadd';
+  const dress = '#fdfdfb', dressShade = '#e2e2ee', dressDeep = '#c2c2d6';
+  const hairCol = '#ecdda4', hairShade = '#d3bb7d', hairHi = '#fdf4d0';
+  const lip = '#cf4343', eye = '#41759b';
+  const hairCols = [hairCol, hairShade, hairHi];
 
   if (o.state === 'grip') {
-    // ---- 站姿：双手抱住右侧电线杆，裙摆被风吹起 ----
-    const skirtY = 6;                          // 腰部（相对重心）
-    const hemBase = skirtY + 17;               // 无风时裙摆位置
-    const hemY = hemBase - blow * 40 + flap * blow * 5;
-    // 腿
-    ctx.strokeStyle = skin; ctx.lineWidth = 5.5;
-    ctx.beginPath(); ctx.moveTo(-4, skirtY + 4); ctx.lineTo(-6, 30); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(5, skirtY + 4); ctx.lineTo(8, 30); ctx.stroke();
-    // 高跟鞋
-    ctx.fillStyle = '#c0392b';
-    ctx.beginPath(); ctx.ellipse(-7, 31, 3.5, 2, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(9, 31, 3.5, 2, 0, 0, Math.PI * 2); ctx.fill();
-    // 安全裤（裙摆扬起时可见，卡通化处理）
-    if (blow > 0.3) {
-      ctx.fillStyle = '#ffe9f2';
-      ctx.beginPath();
-      ctx.moveTo(-5, skirtY + 3); ctx.lineTo(-6.5, hemY - 3);
-      ctx.lineTo(6.5, hemY - 3); ctx.lineTo(5, skirtY + 3);
-      ctx.closePath(); ctx.fill();
-    }
-    // 裙摆（喇叭形，随风向上吹起）
-    ctx.fillStyle = dress;
-    ctx.strokeStyle = dressShade; ctx.lineWidth = 1.5;
+    // ---- 站姿：双脚并拢微屈膝，右臂扶杆，左臂按裙 ----
+    // 地面柔影
+    ctx.fillStyle = 'rgba(20,30,50,.22)';
+    ctx.beginPath(); ctx.ellipse(0, 30.5, 15, 4.2, 0, 0, Math.PI * 2); ctx.fill();
+
+    const skirtY = 0;                    // 腰线
+    const hemBase = 16;                  // 无风裙摆
+    const hemY = hemBase - blow * 48;    // 风掀起后的裙摆高度
+    const holdX = -2, holdY = 13.5;      // 左手按住的前摆位置
+
+    // 腿（并拢微屈，膝盖略向前顶）
+    ctx.strokeStyle = skin; ctx.lineWidth = 5.2;
+    ctx.beginPath(); ctx.moveTo(-3.4, skirtY + 3);
+    ctx.quadraticCurveTo(-4.2, 18, -3, 29.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3.4, skirtY + 3);
+    ctx.quadraticCurveTo(4.6, 18, 3.6, 29.5); ctx.stroke();
+    // 膝盖高光（写实层次）
+    ctx.strokeStyle = skinHi; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-4.1, 15); ctx.quadraticCurveTo(-4.2, 19, -3.6, 21); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(4.5, 15); ctx.quadraticCurveTo(4.6, 19, 4, 21); ctx.stroke();
+    // 白色高跟凉鞋
+    ctx.fillStyle = '#f4f4ef';
+    ctx.beginPath(); ctx.ellipse(-4.4, 30.2, 4.8, 2.3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(4.8, 30.2, 4.8, 2.3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#d9d9d2';
+    ctx.fillRect(-7.9, 28.6, 2, 3.2); ctx.fillRect(6.6, 28.6, 2, 3.2);
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.fillRect(-6.6, 30.1, 4.4, 1); ctx.fillRect(2.8, 30.1, 4.4, 1);
+
+    // 裙摆：前摆被左手按住，两侧和后摆被风掀成伞状（暗部内侧 + 亮部主裙两层）
+    ctx.fillStyle = dressDeep;
     ctx.beginPath();
-    ctx.moveTo(-6, skirtY);
-    ctx.quadraticCurveTo(-17 - blow * 12, (skirtY + hemY) / 2 + flap * blow * 3, -15 - blow * 16, hemY + flap * blow * 5);
-    ctx.quadraticCurveTo(0, hemY + 5 + flap * blow * 4, 15 + blow * 16, hemY + flap * blow * 5);
-    ctx.quadraticCurveTo(12 + blow * 10, (skirtY + hemY) / 2 - flap * blow * 3, 6, skirtY);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    // 上身（贴身连衣裙）
-    ctx.fillStyle = dress;
+    ctx.moveTo(-5.5, skirtY);
+    ctx.quadraticCurveTo(4 + blow * 10, 11 + flap * blow * 4, 13 + blow * 12, hemY - 4 + flap * blow * 6);
+    ctx.quadraticCurveTo(4, hemY - 12 - flap * blow * 5, -10 - blow * 9, hemY * 0.66 + flap * blow * 5);
+    ctx.quadraticCurveTo(-9, 2, 5.5, skirtY);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = dress; ctx.strokeStyle = dressShade; ctx.lineWidth = 1.4;
     ctx.beginPath();
-    ctx.moveTo(-6, skirtY);
-    ctx.quadraticCurveTo(-9.5, -9, -5.5, -17);
-    ctx.lineTo(5.5, -17);
-    ctx.quadraticCurveTo(9.5, -9, 6, skirtY);
+    ctx.moveTo(-5.5, skirtY);
+    ctx.quadraticCurveTo(-9.5 - blow * 4, 7, holdX - 1, holdY + 1);                                   // 左前摆垂到按住处
+    ctx.quadraticCurveTo(5 + blow * 10, 13 + flap * blow * 4, 14 + blow * 12, hemY + flap * blow * 6); // 右侧掀飞
+    ctx.quadraticCurveTo(4, hemY - 7 - flap * blow * 5, -11 - blow * 9, hemY * 0.72 + flap * blow * 5);// 后摆鼓包
+    ctx.quadraticCurveTo(-9, 3, 5.5, skirtY);
     ctx.closePath(); ctx.fill(); ctx.stroke();
-    // 束腰
-    ctx.strokeStyle = '#f6c9d8'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-6.5, skirtY - 1); ctx.lineTo(6.5, skirtY - 1); ctx.stroke();
-    // 手臂：抱住右侧的电线杆
-    const px = world.anchor.x - o.x;
-    ctx.strokeStyle = skin; ctx.lineWidth = 4.2;
-    ctx.beginPath(); ctx.moveTo(-4, -14);
-    ctx.quadraticCurveTo(px * 0.5, -19, px, -13); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(4, -14);
-    ctx.quadraticCurveTo(px * 0.55, -8, px, -3); ctx.stroke();
-    // 头
-    ctx.fillStyle = skin;
-    ctx.beginPath(); ctx.arc(0, -27, 9.5, 0, Math.PI * 2); ctx.fill();
-    // 表情
-    if (o.grip < 0.3 || wind > 0.75) {
-      ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(-3.5, -28, 2.4, 0, Math.PI * 2); ctx.arc(3.5, -28, 2.4, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#222';
-      ctx.beginPath(); ctx.arc(-3.5, -28, 1.2, 0, Math.PI * 2); ctx.arc(3.5, -28, 1.2, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#c0392b';
-      ctx.beginPath(); ctx.ellipse(0, -21, 2.4, 3.4, 0, 0, Math.PI * 2); ctx.fill();
-    } else {
-      ctx.strokeStyle = '#5b4632'; ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(-5, -28); ctx.lineTo(-2, -26); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(5, -28); ctx.lineTo(2, -26); ctx.stroke();
-      ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.arc(0, -21, 2.6, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+    // 裙褶（顺风弧线）
+    ctx.strokeStyle = 'rgba(196,196,216,.65)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      const ex = 3 + blow * 6 + i * (4 + blow * 5);
+      const ey = 8 + blow * (18 + i * 11) + flap * 3;
+      ctx.beginPath();
+      ctx.moveTo(-1 + i * 2, skirtY + 1);
+      ctx.quadraticCurveTo(ex * 0.4, ey * 0.45, ex, ey);
+      ctx.stroke();
     }
+    // 左手按住前摆（画在裙上）
+    ctx.fillStyle = skin; ctx.strokeStyle = skinShade; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(holdX, holdY, 3.4, 2.8, 0.35, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = skinShade; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(holdX - 2.2, holdY + 1.2); ctx.quadraticCurveTo(holdX - 1, holdY + 3.4, holdX + 1.4, holdY + 2.6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(holdX - 0.6, holdY + 1.6); ctx.quadraticCurveTo(holdX + 0.4, holdY + 3.6, holdX + 2.6, holdY + 2.2); ctx.stroke();
+    // 指缝按出的布纹
+    ctx.strokeStyle = 'rgba(196,196,216,.8)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(holdX - 3, holdY + 2.4); ctx.lineTo(holdX - 4.6, holdY + 6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(holdX + 2.8, holdY + 2.2); ctx.lineTo(holdX + 4.4, holdY + 6); ctx.stroke();
+
+    // 左臂：肩 → 肘 → 按在裙摆上的手（画在裙前）
+    ctx.strokeStyle = skin; ctx.lineWidth = 4.2;
+    ctx.beginPath(); ctx.moveTo(-4.6, -21);
+    ctx.quadraticCurveTo(-11.5, -13, -10, -4.5); ctx.stroke();                          // 上臂
+    ctx.beginPath(); ctx.moveTo(-10, -4.5);
+    ctx.quadraticCurveTo(-6, 6.5, holdX - 1, holdY - 2); ctx.stroke();                  // 前臂
+    ctx.strokeStyle = skinHi; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.moveTo(-10.6, -7); ctx.lineTo(-10.2, -3.5); ctx.stroke();      // 肘部高光
+
+    // 上身（白色挂脖裙：露肩 + V 领 + 束腰）
+    ctx.fillStyle = dress; ctx.strokeStyle = dressShade; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-5.5, skirtY);
+    ctx.quadraticCurveTo(-7.6, -7, -5.2, -16);                      // 左胸侧
+    ctx.quadraticCurveTo(-2.6, -21.5, -0.8, -19.5);                 // 左胸 → V 领
+    ctx.quadraticCurveTo(2.6, -21.5, 5.2, -16);                     // V 领 → 右胸
+    ctx.quadraticCurveTo(7.6, -7, 5.5, skirtY);                     // 右胸侧
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // 胸部高光与侧影
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    ctx.beginPath(); ctx.ellipse(-3.4, -13.5, 2.6, 3.4, -0.25, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(3.4, -13.5, 2.6, 3.4, 0.25, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(150,150,190,.25)';
+    ctx.beginPath(); ctx.ellipse(-5.2, -15, 1.4, 2.6, -0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5.2, -15, 1.4, 2.6, 0.3, 0, Math.PI * 2); ctx.fill();
+    // 束腰
+    ctx.strokeStyle = 'rgba(214,214,232,.9)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-5.8, skirtY - 1); ctx.quadraticCurveTo(0, 1.2, 5.8, skirtY - 1); ctx.stroke();
+    // 露肩：肩颈皮肤
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.ellipse(-5.4, -21.5, 3.6, 2.6, 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(5.4, -21.5, 3.6, 2.6, -0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-1.7, -24.5); ctx.lineTo(-1.7, -20.5);
+    ctx.quadraticCurveTo(0, -19.5, 1.7, -20.5); ctx.lineTo(1.7, -24.5);
+    ctx.closePath(); ctx.fill();
+    // 挂脖系带
+    ctx.strokeStyle = dressShade; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(-3.6, -18.5); ctx.quadraticCurveTo(-1.8, -23.5, -0.6, -25.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3.6, -18.5); ctx.quadraticCurveTo(1.8, -23.5, 0.6, -25.5); ctx.stroke();
+
+    // 右臂：高举扶杆（杆在右侧）
+    const px = world.anchor.x - o.x;
+    ctx.strokeStyle = skin; ctx.lineWidth = 4.4;
+    ctx.beginPath(); ctx.moveTo(4.6, -21);
+    ctx.quadraticCurveTo(px * 0.7, -26, px + 0.5, -31.5); ctx.stroke();
+    ctx.strokeStyle = skinShade; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(4.6, -21); ctx.quadraticCurveTo(px * 0.6, -25.5, px, -30.5); ctx.stroke();
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(px + 0.8, -31.5, 2.6, 0, Math.PI * 2); ctx.fill();
+
+    // 头（微仰，朝风来的方向）
+    const hx = -0.5, hy = -32.5, hr = 9.2;
+    drawBlondeBobBack(ctx, hx, hy, hr, blow, hairCols);       // 后层卷发（画在脸后）
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
+    // 下颌阴影（写实层次）
+    ctx.fillStyle = 'rgba(200,150,120,.35)';
+    ctx.beginPath(); ctx.ellipse(hx + 1.5, hy + 6.4, 6.2, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+    // 表情：挣扎（抓力将尽 / 大风）↔ 玛丽莲式迷离微笑
+    if (o.grip < 0.3 || wind > 0.75) {
+      // 睁大眼 + 上眼线
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(hx - 3.4, hy - 1.4, 2.6, 0, Math.PI * 2); ctx.arc(hx + 3.4, hy - 1.4, 2.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = eye;
+      ctx.beginPath(); ctx.arc(hx - 3.4, hy - 1.2, 1.3, 0, Math.PI * 2); ctx.arc(hx + 3.4, hy - 1.2, 1.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#241a14';
+      ctx.beginPath(); ctx.arc(hx - 3.4, hy - 1.2, 0.6, 0, Math.PI * 2); ctx.arc(hx + 3.4, hy - 1.2, 0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#3a2a20'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(hx - 5.8, hy - 2.2); ctx.quadraticCurveTo(hx - 3.4, hy - 3.6, hx - 1.2, hy - 2.2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx + 1.2, hy - 2.2); ctx.quadraticCurveTo(hx + 3.4, hy - 3.6, hx + 5.8, hy - 2.2); ctx.stroke();
+      // 惊呼嘴
+      ctx.fillStyle = '#8f2f2f';
+      ctx.beginPath(); ctx.ellipse(hx, hy + 5.4, 2.2, 3, 0, 0, Math.PI * 2); ctx.fill();
+    } else {
+      // 眼睑半垂的笑眼 + 上翘睫毛
+      ctx.strokeStyle = '#3a2a20'; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(hx - 5.6, hy - 2.6); ctx.quadraticCurveTo(hx - 3.4, hy - 0.6, hx - 1.1, hy - 2.2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx + 1.1, hy - 2.2); ctx.quadraticCurveTo(hx + 3.4, hy - 0.6, hx + 5.6, hy - 2.6); ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(hx - 5.6, hy - 2.6); ctx.lineTo(hx - 6.4, hy - 3.4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(hx + 5.6, hy - 2.6); ctx.lineTo(hx + 6.4, hy - 3.4); ctx.stroke();
+      // 红唇（微启微笑）
+      ctx.fillStyle = lip;
+      ctx.beginPath();
+      ctx.moveTo(hx - 3.2, hy + 4.2);
+      ctx.quadraticCurveTo(hx, hy + 7, hx + 3.2, hy + 4.2);
+      ctx.quadraticCurveTo(hx, hy + 4.6, hx - 3.2, hy + 4.2);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.ellipse(hx + 0.8, hy + 4.9, 1.3, 0.7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#a32e2e'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(hx - 3.2, hy + 4.2); ctx.quadraticCurveTo(hx, hy + 4, hx + 3.2, hy + 4.2); ctx.stroke();
+    }
+    // 眉毛
+    ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(hx - 5.4, hy - 5.4); ctx.quadraticCurveTo(hx - 3.2, hy - 6.6, hx - 1, hy - 5.8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hx + 5.4, hy - 5.4); ctx.quadraticCurveTo(hx + 3.2, hy - 6.6, hx + 1, hy - 5.8); ctx.stroke();
     // 腮红
-    ctx.fillStyle = 'rgba(255,120,130,.45)';
-    ctx.beginPath(); ctx.arc(-7.5, -23, 2.6, 0, Math.PI * 2); ctx.arc(7.5, -23, 2.6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,130,140,.4)';
+    ctx.beginPath(); ctx.ellipse(hx - 6.2, hy + 1.6, 2.2, 1.5, 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(hx + 6.2, hy + 1.6, 2.2, 1.5, -0.3, 0, Math.PI * 2); ctx.fill();
+    // 美人痣（左脸颊）
+    ctx.fillStyle = '#7a4a3a';
+    ctx.beginPath(); ctx.arc(hx - 6.6, hy + 4.2, 0.9, 0, Math.PI * 2); ctx.fill();
     // 汗珠
     if (o.sweat) {
-      ctx.fillStyle = '#5ec8f0';
+      ctx.fillStyle = '#7fd4f5';
       const sw = Math.sin(t / 90);
-      if (sw > 0.2) { ctx.beginPath(); ctx.arc(-11, -33, 2.4, 0, Math.PI * 2); ctx.fill(); }
-      if (sw < -0.2) { ctx.beginPath(); ctx.arc(11, -36, 1.8, 0, Math.PI * 2); ctx.fill(); }
+      if (sw > 0.2) { ctx.beginPath(); ctx.arc(hx - 9.5, hy - 5, 2.2, 0, Math.PI * 2); ctx.fill(); }
+      if (sw < -0.2) { ctx.beginPath(); ctx.arc(hx + 9.5, hy - 7, 1.7, 0, Math.PI * 2); ctx.fill(); }
     }
-    // 长发（被风吹起）
-    drawHair(ctx, t, blow, flap, hairCol);
+    drawBlondeBobFront(ctx, t, blow, flap, hx, hy, hr, hairCols, 1);  // 前层刘海 + 风扬发丝
   } else {
-    // ---- 被吹飞：四肢乱甩，裙发狂飘 ----
+    // ---- 被吹飞：裙摆整个掀过头顶，四肢乱甩，白金发狂飘 ----
     const a1 = Math.sin(t / 60) * 1.2, a2 = Math.sin(t / 60 + 2) * 1.2;
-    ctx.strokeStyle = skin; ctx.lineWidth = 5.5;
-    ctx.beginPath(); ctx.moveTo(0, 0);
-    ctx.lineTo(Math.cos(a1 + 0.6) * 26, Math.sin(a1 + 0.6) * 26); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, 0);
-    ctx.lineTo(Math.cos(a2 + 0.6) * 26, Math.sin(a2 + 0.6) * 26); ctx.stroke();
+    // 腿（乱蹬，穿着白鞋）
+    ctx.strokeStyle = skin; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(-3, 4);
+    ctx.lineTo(Math.cos(a1 + 0.8) * 24, Math.sin(a1 + 0.8) * 24 + 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(3, 4);
+    ctx.lineTo(Math.cos(a2 + 0.8) * 24, Math.sin(a2 + 0.8) * 24 + 4); ctx.stroke();
+    ctx.fillStyle = '#f4f4ef';
+    ctx.beginPath(); ctx.ellipse(Math.cos(a1 + 0.8) * 25, Math.sin(a1 + 0.8) * 25 + 3.6, 4.4, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(Math.cos(a2 + 0.8) * 25, Math.sin(a2 + 0.8) * 25 + 3.6, 4.4, 2.2, 0, 0, Math.PI * 2); ctx.fill();
     // 安全裤
-    ctx.fillStyle = '#ffe9f2';
-    ctx.beginPath(); ctx.ellipse(0, 2, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
-    // 裙摆（炸开）
-    ctx.fillStyle = dress; ctx.strokeStyle = dressShade; ctx.lineWidth = 1.5;
+    ctx.fillStyle = '#f3e2e8';
+    ctx.beginPath(); ctx.ellipse(0, 4, 7, 8.5, 0, 0, Math.PI * 2); ctx.fill();
+    // 裙摆（掀过头顶的伞状，暗部 + 亮部）
+    ctx.fillStyle = dressDeep;
     ctx.beginPath();
-    ctx.moveTo(-6, 4);
-    ctx.quadraticCurveTo(-24, -2 + flap * 6, -16, -22 + flap * 8);
-    ctx.quadraticCurveTo(0, -26 + flap * 6, 16, -22 + flap * 8);
-    ctx.quadraticCurveTo(24, -2 + flap * 6, 6, 4);
+    ctx.moveTo(-6, 3);
+    ctx.quadraticCurveTo(-25, -2 + flap * 6, -19, -38 + flap * 9);
+    ctx.quadraticCurveTo(0, -50 + flap * 7, 19, -38 + flap * 9);
+    ctx.quadraticCurveTo(25, -2 + flap * 6, 6, 3);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = dress; ctx.strokeStyle = dressShade; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-6, 3);
+    ctx.quadraticCurveTo(-24, -4 + flap * 6, -18, -42 + flap * 9);
+    ctx.quadraticCurveTo(0, -53 + flap * 7, 18, -42 + flap * 9);
+    ctx.quadraticCurveTo(24, -4 + flap * 6, 6, 3);
     ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(196,196,216,.6)'; ctx.lineWidth = 1;
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * 2.5, 2);
+      ctx.quadraticCurveTo(i * 12, -20 + flap * 5, i * 17, -40 + flap * 9);
+      ctx.stroke();
+    }
     // 上身
-    ctx.fillStyle = dress;
+    ctx.fillStyle = dress; ctx.strokeStyle = dressShade; ctx.lineWidth = 1.4;
     ctx.beginPath();
-    ctx.moveTo(-6, 4);
-    ctx.quadraticCurveTo(-9, -12, -5, -20);
-    ctx.lineTo(5, -20);
-    ctx.quadraticCurveTo(9, -12, 6, 4);
+    ctx.moveTo(-5.5, 3);
+    ctx.quadraticCurveTo(-7.5, -8, -4.8, -16);
+    ctx.quadraticCurveTo(0, -21, 4.8, -16);
+    ctx.quadraticCurveTo(7.5, -8, 5.5, 3);
     ctx.closePath(); ctx.fill(); ctx.stroke();
     // 手臂乱甩
     ctx.strokeStyle = skin; ctx.lineWidth = 4.2;
-    ctx.beginPath(); ctx.moveTo(-4, -17);
-    ctx.lineTo(Math.cos(a1) * 20, -17 + Math.sin(a1) * 20); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(4, -17);
-    ctx.lineTo(Math.cos(a2) * 20, -17 + Math.sin(a2) * 20); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-4, -14);
+    ctx.quadraticCurveTo(Math.cos(a1) * 12 - 6, -16 + Math.sin(a1) * 12, Math.cos(a1) * 22, -14 + Math.sin(a1) * 22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(4, -14);
+    ctx.quadraticCurveTo(Math.cos(a2) * 12 + 6, -16 + Math.sin(a2) * 12, Math.cos(a2) * 22, -14 + Math.sin(a2) * 22); ctx.stroke();
     // 头 + 惊慌脸
+    const fhx = 0, fhy = -31, fhr = 9;
+    drawBlondeBobBack(ctx, fhx, fhy, fhr, 1, hairCols);
     ctx.fillStyle = skin;
-    ctx.beginPath(); ctx.arc(0, -30, 9.5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(fhx, fhy, fhr, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#fff';
-    ctx.beginPath(); ctx.arc(-3.5, -31, 2.4, 0, Math.PI * 2); ctx.arc(3.5, -31, 2.4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#222';
-    ctx.beginPath(); ctx.arc(-3.5, -31, 1.2, 0, Math.PI * 2); ctx.arc(3.5, -31, 1.2, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#c0392b';
-    ctx.beginPath(); ctx.ellipse(0, -24, 2.4, 3.4, 0, 0, Math.PI * 2); ctx.fill();
-    drawHair(ctx, t, 1, flap, hairCol);
+    ctx.beginPath(); ctx.arc(fhx - 3.4, fhy - 1.4, 2.5, 0, Math.PI * 2); ctx.arc(fhx + 3.4, fhy - 1.4, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = eye;
+    ctx.beginPath(); ctx.arc(fhx - 3.4, fhy - 1.2, 1.2, 0, Math.PI * 2); ctx.arc(fhx + 3.4, fhy - 1.2, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8f2f2f';
+    ctx.beginPath(); ctx.ellipse(fhx, fhy + 5.4, 2.1, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = lip;
+    ctx.beginPath(); ctx.arc(fhx - 5.8, fhy + 2.4, 1.8, 0, Math.PI * 2); ctx.arc(fhx + 5.8, fhy + 2.4, 1.8, 0, Math.PI * 2); ctx.fill();
+    drawBlondeBobFront(ctx, t, 1, flap, fhx, fhy, fhr, hairCols, 1.6);
   }
   ctx.restore();
 }
-function drawHair(ctx, t, blow, flap, color) {
-  ctx.strokeStyle = color;
-  ctx.lineCap = 'round';
-  const n = 5;
-  for (let i = 0; i < n; i++) {
-    const a = -Math.PI * (0.15 + i * 0.11); // 向后上方散开
-    const len = 15 + blow * 26 + Math.sin(t / 80 + i) * 3;
-    ctx.lineWidth = 4.5 - i * 0.6;
+// 白金卷发 · 后层（画在脸之后、头之前）：蓬松大卷 bob，发量浓密
+function drawBlondeBobBack(ctx, hx, hy, hr, blow, cols) {
+  const [base, shade] = cols;
+  // 后层大卷（厚发量：顶部圆蓬 + 两侧垂到耳下 + 后颈发堆）
+  ctx.fillStyle = base;
+  ctx.beginPath(); ctx.arc(hx, hy - 1, hr + 2.6, Math.PI * 0.9, Math.PI * 2.1); ctx.fill();
+  // 左侧发堆（蓬松到耳下，风大时上扬）
+  ctx.beginPath();
+  ctx.moveTo(hx - hr - 2, hy - 2);
+  ctx.quadraticCurveTo(hx - hr - 6, hy + 2, hx - hr - 5.5, hy + 7.5 - blow * 5);
+  ctx.quadraticCurveTo(hx - hr - 3.5, hy + 9.5 - blow * 5, hx - hr - 1.6, hy + 7 - blow * 5);
+  ctx.quadraticCurveTo(hx - hr - 2.5, hy + 3, hx - hr + 1.6, hy + 2);
+  ctx.closePath(); ctx.fill();
+  // 右侧发堆
+  ctx.beginPath();
+  ctx.moveTo(hx + hr + 2, hy - 2);
+  ctx.quadraticCurveTo(hx + hr + 6, hy + 2, hx + hr + 5.5, hy + 7.5 - blow * 5);
+  ctx.quadraticCurveTo(hx + hr + 3.5, hy + 9.5 - blow * 5, hx + hr + 1.6, hy + 7 - blow * 5);
+  ctx.quadraticCurveTo(hx + hr + 2.5, hy + 3, hx + hr - 1.6, hy + 2);
+  ctx.closePath(); ctx.fill();
+  // 后颈发堆（枕部蓬松，风大时被吹起）
+  ctx.beginPath();
+  ctx.ellipse(hx - hr * 0.2, hy + 8.6 - blow * 4, hr + 3.4, 5.4, 0, 0, Math.PI * 2); ctx.fill();
+  // 卷发阴影层次
+  ctx.strokeStyle = shade; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(hx - hr - 3, hy + 5 - blow * 4, 2.6, Math.PI * 0.6, Math.PI * 1.7); ctx.stroke();
+  ctx.beginPath(); ctx.arc(hx + hr + 3, hy + 5 - blow * 4, 2.6, -Math.PI * 0.7, Math.PI * 0.4); ctx.stroke();
+}
+// 白金卷发 · 前层（刘海卷 + 耳侧卷 + 被风扬起的发丝，画在脸之后）
+function drawBlondeBobFront(ctx, t, blow, flap, hx, hy, hr, cols, lenMul = 1) {
+  const [base, shade, hi] = cols;
+  // 刘海：蓬松内卷，覆盖大半个额头
+  ctx.fillStyle = base;
+  ctx.beginPath();
+  ctx.moveTo(hx - hr - 1.5, hy - 3.2);
+  ctx.quadraticCurveTo(hx - 6.4, hy - 9.6, hx - 0.5, hy - 9.8);
+  ctx.quadraticCurveTo(hx + 6.2, hy - 9.6, hx + hr + 1.5, hy - 3.2);
+  ctx.quadraticCurveTo(hx + hr - 2.5, hy - 6.2, hx + 2.4, hy - 6.6);
+  ctx.quadraticCurveTo(hx - 3.6, hy - 6.2, hx - hr - 1.5, hy - 3.2);
+  ctx.closePath(); ctx.fill();
+  // 刘海卷（5 撮小卷）
+  ctx.strokeStyle = shade; ctx.lineWidth = 1.1;
+  for (let i = -2; i <= 2; i++) {
     ctx.beginPath();
-    ctx.moveTo(Math.cos(a) * 7, -27 + Math.sin(a) * 7);
-    const mx = Math.cos(a) * len * 0.6, my = -27 + Math.sin(a) * len * 0.6 - blow * 6 + flap * 2;
-    const ex = Math.cos(a) * len, ey = -27 + Math.sin(a) * len - blow * 14 + flap * 4;
-    ctx.quadraticCurveTo(mx, my, ex, ey);
+    ctx.moveTo(hx + i * 2.8, hy - 9.2);
+    ctx.quadraticCurveTo(hx + i * 4.2, hy - 6.4, hx + i * 2.9, hy - 4.6);
     ctx.stroke();
   }
+  // 耳侧外翻卷 ×2（梦露标志性卷）
+  for (const s of [-1, 1]) {
+    ctx.fillStyle = base;
+    ctx.beginPath(); ctx.arc(hx + s * (hr + 1.2), hy + 5 - blow * 2.5, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx + s * (hr + 3), hy + 7.4 - blow * 3, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = hi;
+    ctx.beginPath(); ctx.arc(hx + s * (hr + 0.6), hy + 4.2 - blow * 2.5, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = shade; ctx.lineWidth = 0.9;
+    ctx.beginPath(); ctx.arc(hx + s * (hr + 1.2), hy + 5 - blow * 2.5, 3, Math.PI * (s > 0 ? 1.1 : 1.9), Math.PI * (s > 0 ? 1.7 : 1.3)); ctx.stroke();
+  }
+  // 被上升气流扬起的发丝（7 束，更浓密）
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 7; i++) {
+    const a = -Math.PI * (0.13 + i * 0.115);   // 从右上方到左上方散开
+    const len = (6 + blow * (15 + i * 4) + Math.sin(t / 70 + i) * 3) * lenMul;
+    ctx.strokeStyle = i % 2 ? shade : base;
+    ctx.lineWidth = 2.8 - i * 0.25;
+    ctx.beginPath();
+    const sx = hx + Math.cos(a) * (hr - 1.5), sy = hy + Math.sin(a) * (hr - 1.5);
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(
+      sx + Math.cos(a) * len * 0.6 - blow * 3, sy + Math.sin(a) * len * 0.6,
+      sx + Math.cos(a) * len, sy + Math.sin(a) * len + Math.sin(t / 60 + i * 2) * 2.4);
+    ctx.stroke();
+  }
+  // 顶发高光 + 卷发亮丝
+  ctx.strokeStyle = hi; ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.arc(hx, hy - 1.5, hr + 1.2, Math.PI * 1.28, Math.PI * 1.72);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(hx - hr - 0.4, hy + 4.6 - blow * 2.5, 2.6, Math.PI * 1.4, Math.PI * 1.9);
+  ctx.stroke();
 }
 
 /* ==================== 场景绘制 ==================== */
@@ -897,135 +1090,269 @@ function drawClouds(ctx, t, wind) {
     ctx.restore();
   }
 }
-/* ---------- 海滨城市：海 / 沙滩 / 建筑 / 海鸥 / 电线杆 ---------- */
+/* ---------- 海滨城市 v3（写实黄昏）：金色时刻 / 阳光海面 / 湿沙反光 / 雾气建筑 ---------- */
 function paintSeaside(ctx, t, wind) {
   const { W, H, groundY } = world;
-  // 天空：天蓝 → 地平线暖色（黄昏感）
+  // 天空：金色时刻（上冷下暖的多段渐变）
   const g = ctx.createLinearGradient(0, 0, 0, groundY);
-  g.addColorStop(0, '#2f8fd6');
-  g.addColorStop(0.55, '#7cc8f2');
-  g.addColorStop(0.82, '#c9ecfa');
-  g.addColorStop(1, '#fff3d6');
+  g.addColorStop(0, '#2e5d94');
+  g.addColorStop(0.35, '#6d9fc7');
+  g.addColorStop(0.62, '#d9b97e');
+  g.addColorStop(0.85, '#f3c98f');
+  g.addColorStop(1, '#fbd9a4');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  // 太阳 + 更大的光晕
-  const sunX = W * 0.82, sunY = H * 0.15;
-  const rg = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, 95);
-  rg.addColorStop(0, 'rgba(255,246,180,1)');
-  rg.addColorStop(0.3, 'rgba(255,240,150,.55)');
-  rg.addColorStop(1, 'rgba(255,240,150,0)');
-  ctx.fillStyle = rg; ctx.fillRect(sunX - 95, sunY - 95, 190, 190);
-  ctx.fillStyle = '#fff3b8';
-  ctx.beginPath(); ctx.arc(sunX, sunY, 21, 0, Math.PI * 2); ctx.fill();
-  // 云
-  drawClouds(ctx, t, wind);
-  // 海
-  const horizon = H * 0.33, shore = H * 0.54;
-  const sg = ctx.createLinearGradient(0, horizon, 0, shore);
-  sg.addColorStop(0, '#1f7fc4'); sg.addColorStop(1, '#57c2e6');
-  ctx.fillStyle = sg; ctx.fillRect(0, horizon, W, shore - horizon);
-  // 海面阳光倒影（一条亮带，风越大越晃）
-  const refl = ctx.createLinearGradient(sunX - 34, horizon, sunX + 34, horizon);
-  refl.addColorStop(0, 'rgba(255,240,170,0)');
-  refl.addColorStop(0.5, `rgba(255,240,170,${0.22 + wind * 0.2})`);
-  refl.addColorStop(1, 'rgba(255,240,170,0)');
-  ctx.fillStyle = refl; ctx.fillRect(sunX - 34, horizon, 68, shore - horizon);
-  // 远帆船（缓慢移动）
-  drawBoat(ctx, t, wind);
-  // 海浪（风越大越乱）
-  ctx.strokeStyle = 'rgba(255,255,255,.65)';
+  // 高卷云（夕阳染，慢速漂移）
+  ctx.strokeStyle = 'rgba(255,225,190,.5)'; ctx.lineWidth = 2;
   for (let i = 0; i < 3; i++) {
-    const yy = horizon + (shore - horizon) * (0.22 + i * 0.32);
-    ctx.lineWidth = 1.2 + i * 0.6;
+    const yy = H * (0.10 + i * 0.055);
     ctx.beginPath();
-    for (let x = 0; x <= W; x += 8) {
-      const yw = yy + Math.sin(x / 24 + t / 480 + i * 2.1) * (1.5 + wind * 5 + i * 0.8);
-      if (x === 0) ctx.moveTo(x, yw); else ctx.lineTo(x, yw);
+    for (let x = 0; x <= W; x += 6) {
+      const yw = yy + Math.sin(x / 38 + i * 2 + t / 2600) * 4;
+      x === 0 ? ctx.moveTo(x, yw) : ctx.lineTo(x, yw);
     }
     ctx.stroke();
   }
-  // 浪花点
+  // 太阳（低悬 + 多层暖光晕）
+  const sunX = W * 0.80, sunY = H * 0.20;
+  const rg = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, 120);
+  rg.addColorStop(0, 'rgba(255,214,150,.95)');
+  rg.addColorStop(0.18, 'rgba(255,196,110,.5)');
+  rg.addColorStop(0.5, 'rgba(255,170,90,.16)');
+  rg.addColorStop(1, 'rgba(255,170,90,0)');
+  ctx.fillStyle = rg; ctx.fillRect(sunX - 120, sunY - 120, 240, 240);
+  // 太阳本体（微椭圆 + 高光核心）
+  ctx.fillStyle = '#ffe9b8';
+  ctx.beginPath(); ctx.ellipse(sunX, sunY, 24, 21, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff7e0';
+  ctx.beginPath(); ctx.ellipse(sunX - 4, sunY - 4, 13, 11, 0, 0, Math.PI * 2); ctx.fill();
+  // 云（夕阳染：底部橙、顶部淡金）
+  drawCloudsSunset(ctx, t, wind);
+  // 海（深青 → 浅青渐变）
+  const horizon = H * 0.33, shore = H * 0.54;
+  const sg = ctx.createLinearGradient(0, horizon, 0, shore);
+  sg.addColorStop(0, '#2a6d9c'); sg.addColorStop(0.6, '#3f86b4'); sg.addColorStop(1, '#7fb8d4');
+  ctx.fillStyle = sg; ctx.fillRect(0, horizon, W, shore - horizon);
+  // 海平线雾带（大气透视）
+  const hz = ctx.createLinearGradient(0, horizon - 4, 0, horizon + 10);
+  hz.addColorStop(0, 'rgba(255,224,180,0)');
+  hz.addColorStop(0.5, 'rgba(255,224,180,.35)');
+  hz.addColorStop(1, 'rgba(255,224,180,0)');
+  ctx.fillStyle = hz; ctx.fillRect(0, horizon - 4, W, 14);
+  // 太阳倒影（宽光带 + 碎金光斑，风大更晃）
+  const refl = ctx.createLinearGradient(sunX - 46, horizon, sunX + 46, horizon);
+  refl.addColorStop(0, 'rgba(255,200,130,0)');
+  refl.addColorStop(0.5, `rgba(255,200,130,${0.30 + wind * 0.2})`);
+  refl.addColorStop(1, 'rgba(255,200,130,0)');
+  ctx.fillStyle = refl; ctx.fillRect(sunX - 46, horizon, 92, shore - horizon);
+  for (let i = 0; i < 26; i++) {
+    const gx = sunX + Math.sin(i * 2.7) * 40;
+    const gy = horizon + ((i * 13 + t * (0.01 + wind * 0.05)) % (shore - horizon));
+    const gw = 1.2 + Math.abs(Math.sin(i * 5.1)) * (2 + wind * 4);
+    ctx.fillStyle = `rgba(255,225,170,${0.18 + Math.abs(Math.sin(t / 300 + i)) * 0.3})`;
+    ctx.fillRect(gx - gw / 2, gy, gw, 1.4);
+  }
+  // 远帆船
+  drawBoat(ctx, t, wind);
+  // 海浪（远→近三层，近浪带白沫）
+  for (let i = 0; i < 3; i++) {
+    const yy = horizon + (shore - horizon) * (0.30 + i * 0.30);
+    ctx.strokeStyle = `rgba(240,250,255,${0.35 + i * 0.15})`;
+    ctx.lineWidth = 1 + i * 0.5;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 7) {
+      const yw = yy + Math.sin(x / 26 + t / 460 + i * 2.1) * (1.5 + wind * 5 + i * 0.8);
+      x === 0 ? ctx.moveTo(x, yw) : ctx.lineTo(x, yw);
+    }
+    ctx.stroke();
+    if (i === 2) {
+      ctx.fillStyle = 'rgba(255,255,255,.7)';
+      for (let x = 0; x <= W; x += 22) {
+        const yw = yy + Math.sin(x / 26 + t / 460 + i * 2.1) * (1.5 + wind * 5 + i * 0.8);
+        ctx.beginPath(); ctx.arc(x, yw - 1.5, 1.6, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+  // 浪花点（近岸）
   ctx.fillStyle = 'rgba(255,255,255,.8)';
   for (let i = 0; i < 8; i++) {
     const fx = (i * 61 + t * (0.01 + wind * 0.06)) % W;
     const fy = shore - 4 + Math.sin(i * 3.7) * 5;
     ctx.beginPath(); ctx.arc(fx, fy, 2, 0, Math.PI * 2); ctx.fill();
   }
-  // 沙滩
-  ctx.fillStyle = '#f2dfae';
+  // 沙滩（干沙渐变）
+  const sd = ctx.createLinearGradient(0, shore, 0, groundY);
+  sd.addColorStop(0, '#e6d3a8'); sd.addColorStop(1, '#dcc393');
+  ctx.fillStyle = sd;
   ctx.beginPath();
   ctx.moveTo(0, shore);
   ctx.quadraticCurveTo(W * 0.5, shore - 7, W, shore);
   ctx.lineTo(W, groundY - 34);
   ctx.lineTo(0, groundY - 34);
   ctx.closePath(); ctx.fill();
-  // 沙地波纹
-  ctx.strokeStyle = 'rgba(200,170,110,.5)'; ctx.lineWidth = 1;
+  // 湿沙带（近水线深色，被水浸湿）
+  const ws = ctx.createLinearGradient(0, shore - 6, 0, shore + 26);
+  ws.addColorStop(0, '#c9ad84');
+  ws.addColorStop(1, 'rgba(201,173,132,0)');
+  ctx.fillStyle = ws;
+  ctx.beginPath();
+  ctx.moveTo(0, shore - 4);
+  ctx.quadraticCurveTo(W * 0.5, shore - 9, W, shore - 4);
+  ctx.lineTo(W, shore + 26);
+  ctx.lineTo(0, shore + 26);
+  ctx.closePath(); ctx.fill();
+  // 湿沙上的阳光反光
+  ctx.fillStyle = `rgba(255,214,160,${0.25 + wind * 0.15})`;
+  ctx.beginPath(); ctx.ellipse(sunX, shore + 3, 34, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+  // 沙纹（风越大越密）
+  ctx.strokeStyle = 'rgba(180,150,105,.45)'; ctx.lineWidth = 1;
   for (let i = 0; i < 3; i++) {
-    const yy = shore + 14 + i * 22;
+    const yy = shore + 16 + i * 24;
     ctx.beginPath();
     for (let x = 0; x <= W; x += 6) {
       const yw = yy + Math.sin(x / 20 + i) * 3;
-      if (x === 0) ctx.moveTo(x, yw); else ctx.lineTo(x, yw);
+      x === 0 ? ctx.moveTo(x, yw) : ctx.lineTo(x, yw);
     }
     ctx.stroke();
   }
-  // 建筑群（两侧，中间留出海景）
-  drawBuilding(ctx, -W * 0.05, H * 0.24, W * 0.27, '#f4a261', t, wind);
-  drawBuilding(ctx, W * 0.70, H * 0.22, W * 0.33, '#8fc98f', t, wind);
-  drawBuilding(ctx, W * 0.26, H * 0.34, W * 0.17, '#f7c873', t, wind);
-  // 海鸥（风大时被吹高）
+  // 沙粒质感
+  ctx.fillStyle = 'rgba(160,130,90,.5)';
+  for (let i = 0; i < 26; i++) {
+    ctx.fillRect((i * 53) % W, shore + 18 + ((i * 37) % (groundY - 34 - shore - 18)), 1.2, 1.2);
+  }
+  // 建筑群（写实立面：渐变墙体 / 玻璃反射 / 亮灯窗 / 遮阳篷）
+  drawBuilding(ctx, -W * 0.05, H * 0.20, W * 0.27, t, wind, 0);
+  drawBuilding(ctx, W * 0.70, H * 0.18, W * 0.33, t, wind, 1);
+  drawBuilding(ctx, W * 0.26, H * 0.30, W * 0.17, t, wind, 2);
+  // 建筑底部雾气（把远景推远）
+  const fog = ctx.createLinearGradient(0, H * 0.42, 0, groundY - 46);
+  fog.addColorStop(0, 'rgba(244,214,170,0)');
+  fog.addColorStop(1, 'rgba(244,214,170,.5)');
+  ctx.fillStyle = fog; ctx.fillRect(0, H * 0.42, W, groundY - 46 - H * 0.42);
+  // 海鸥
   drawGulls(ctx, t, wind);
-  // 街道
-  ctx.fillStyle = '#aeb6bd';
+  // 街道（沥青渐变 + 路缘 + 车道线）
+  const st = ctx.createLinearGradient(0, groundY - 46, 0, groundY);
+  st.addColorStop(0, '#9aa4ac'); st.addColorStop(1, '#7f8a93');
+  ctx.fillStyle = st;
   ctx.fillRect(0, groundY - 46, W, 46);
-  ctx.fillStyle = '#c6cdd2';
+  ctx.fillStyle = '#b9c0c6';
   ctx.fillRect(0, groundY - 50, W, 6);
   ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 4;
   ctx.setLineDash([16, 14]);
   ctx.beginPath(); ctx.moveTo(0, groundY - 24); ctx.lineTo(W, groundY - 24); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = '#96a1a9';
+  ctx.fillStyle = '#7d8891';
   ctx.fillRect(0, groundY - 52, W, 2);
-  // 电线杆（人物抱住的固定物）
+  // 人行道砖缝（前景细节）
+  ctx.strokeStyle = 'rgba(120,130,138,.5)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, groundY - 10); ctx.lineTo(W, groundY - 10); ctx.stroke();
+  // 路面延伸至屏幕底（盖住天空渐变的尾色）
+  ctx.fillStyle = '#7f8a93';
+  ctx.fillRect(0, groundY, W, H - groundY);
+  ctx.fillStyle = 'rgba(0,0,0,.15)';
+  ctx.fillRect(0, groundY, W, 2);
+  // 电线杆（人物扶住的固定物）
   if (world.anchor && world.anchor.type === 'pole') drawPole(ctx, t, wind);
-  // 楼顶小旗（随风狂飘）
+  // 楼顶小旗
   drawFlag(ctx, t, wind);
+  // 整体暖色滤镜（黄昏氛围）
+  const warm = ctx.createLinearGradient(0, 0, 0, H);
+  warm.addColorStop(0, 'rgba(120,60,140,.05)');
+  warm.addColorStop(1, 'rgba(255,140,60,.06)');
+  ctx.fillStyle = warm; ctx.fillRect(0, 0, W, H);
 }
-function drawBuilding(ctx, x, topY, w, color, t, wind) {
+// 夕阳染色的云（写实：底橙顶金 + 透光）
+function drawCloudsSunset(ctx, t, wind) {
+  for (const c of clouds) {
+    const cx = c.x, cy = c.y, s = c.s;
+    ctx.save();
+    ctx.fillStyle = 'rgba(235,150,110,.30)';
+    ctx.beginPath(); ctx.ellipse(cx + 5, cy + 8, 26 * s, 9 * s, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,238,214,.92)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 15 * s, 0, Math.PI * 2);
+    ctx.arc(cx + 17 * s, cy - 6 * s, 12 * s, 0, Math.PI * 2);
+    ctx.arc(cx + 33 * s, cy, 14 * s, 0, Math.PI * 2);
+    ctx.arc(cx + 16 * s, cy + 5 * s, 13 * s, 0, Math.PI * 2);
+    ctx.fill();
+    // 底部受夕阳照射的橙边
+    ctx.fillStyle = 'rgba(255,196,140,.5)';
+    ctx.beginPath(); ctx.ellipse(cx + 16 * s, cy + 7 * s, 26 * s, 6 * s, 0, 0, Math.PI * 2); ctx.fill();
+    // 顶部金色高光
+    ctx.fillStyle = 'rgba(255,244,205,.7)';
+    ctx.beginPath(); ctx.ellipse(cx + 5 * s, cy - 3 * s, 20 * s, 6 * s, -.1, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+function drawBuilding(ctx, x, topY, w, t, wind, seed) {
   const { groundY } = world;
   const bottomY = groundY - 48;
   const h = bottomY - topY;
   if (h < 40) return;
-  ctx.fillStyle = color;
+  // 写实立面配色（受夕阳照射的暖色外墙）
+  const PALS = [
+    { base: '#d8a06a', lit: '#e8b57e', dark: '#b07d4f', roof: '#a86a48' },
+    { base: '#c9b9a4', lit: '#dccdb4', dark: '#a08c72', roof: '#9a8470' },
+    { base: '#b98a68', lit: '#ca9c76', dark: '#94684c', roof: '#8f6248' },
+  ];
+  const pal = PALS[seed % PALS.length];
+  // 墙体（受光面 → 背光面的垂直渐变）
+  const wg = ctx.createLinearGradient(0, topY, 0, bottomY);
+  wg.addColorStop(0, pal.lit); wg.addColorStop(0.6, pal.base); wg.addColorStop(1, pal.dark);
+  ctx.fillStyle = wg;
   ctx.fillRect(x, topY, w, h);
-  ctx.fillStyle = 'rgba(0,0,0,.08)';
-  ctx.fillRect(x + w - 6, topY, 6, h);
-  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  // 右侧暗面（立体感）
+  ctx.fillStyle = 'rgba(90,60,40,.18)';
+  ctx.fillRect(x + w - 5, topY, 5, h);
+  // 屋顶压檐
+  ctx.fillStyle = pal.roof;
   ctx.fillRect(x - 3, topY - 4, w + 6, 8);
-  // 窗户
+  ctx.fillStyle = 'rgba(255,255,255,.25)';
+  ctx.fillRect(x - 3, topY - 4, w + 6, 2);
+  // 窗户（玻璃反光：上亮下暗，部分亮灯）
   const cols = Math.max(1, Math.floor(w / 26));
   const rows = Math.max(1, Math.floor(h / 42));
   const cw = (w - 16) / cols, ch = Math.min(20, (h - 24) / rows);
-  ctx.fillStyle = 'rgba(255,255,255,.9)';
-  ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const wx = x + 8 + c * cw + (cw - 13) / 2, wy = topY + 12 + r * ch;
       if (wy + 14 < bottomY - 6) {
-        ctx.fillRect(wx, wy, 13, 14);
+        ctx.fillStyle = 'rgba(0,0,0,.25)';
+        ctx.fillRect(wx - 1, wy - 1, 15, 16);
+        const litWin = ((r * 7 + c * 5 + seed * 3) % 9) < 2; // 约两成窗亮灯
+        if (litWin) {
+          ctx.fillStyle = 'rgba(255,208,140,.9)';
+          ctx.fillRect(wx, wy, 13, 14);
+          ctx.fillStyle = 'rgba(255,240,200,.6)';
+          ctx.fillRect(wx, wy, 13, 6);
+        } else {
+          // 玻璃映出天空：上青下暗
+          const winG = ctx.createLinearGradient(0, wy, 0, wy + 14);
+          winG.addColorStop(0, 'rgba(214,232,246,.95)');
+          winG.addColorStop(0.55, 'rgba(168,196,218,.85)');
+          winG.addColorStop(1, 'rgba(120,148,172,.8)');
+          ctx.fillStyle = winG;
+          ctx.fillRect(wx, wy, 13, 14);
+          // 玻璃斜高光
+          ctx.fillStyle = 'rgba(255,255,255,.4)';
+          ctx.fillRect(wx, wy, 4, 14);
+        }
+        ctx.strokeStyle = 'rgba(80,60,50,.35)'; ctx.lineWidth = 1;
         ctx.strokeRect(wx, wy, 13, 14);
       }
     }
   }
-  // 遮阳篷（风大上扬）
+  // 遮阳篷（风大上扬，带条纹阴影）
   const aw = w * 0.5, ax = x + w * 0.25, ay = topY + 8 + h * 0.3;
   ctx.save();
   ctx.translate(ax + aw / 2, ay);
   ctx.transform(1, -wind * 0.6 - Math.sin(t / 700) * 0.08, 0, 1, 0, 0);
   for (let i = 0; i < 4; i++) {
-    ctx.fillStyle = i % 2 ? '#f6f6f6' : '#e74c3c';
+    ctx.fillStyle = i % 2 ? '#f2ede2' : '#c96f4f';
     ctx.fillRect(-aw / 2 + (i * aw) / 4, 0, aw / 4 + 1, 13);
   }
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  ctx.fillRect(-aw / 2, 11, aw, 2);
   ctx.restore();
 }
 function drawGulls(ctx, t, wind) {
@@ -1035,16 +1362,20 @@ function drawGulls(ctx, t, wind) {
     { x0: 0.5, y0: 0.26, s: 0.7, ph: 2 },
     { x0: 0.75, y0: 0.19, s: 0.85, ph: 4 },
   ];
-  ctx.strokeStyle = '#5b6a72'; ctx.lineWidth = 2; ctx.lineCap = 'round';
   for (const gu of gulls) {
     const x = ((gu.x0 * W + t * (8 + wind * 60)) % (W + 80)) - 40;
     const y = gu.y0 * H - wind * 46 + Math.sin(t / 700 + gu.ph) * 6;
     const s = gu.s;
+    const f = Math.sin(t / 160 + gu.ph) * 0.55; // 翅膀扇动
+    // 写实剪影：双翅 + 小身躯
+    ctx.strokeStyle = '#3d4a52'; ctx.lineWidth = 2; ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(x - 9 * s, y + 3 * s);
-    ctx.quadraticCurveTo(x - 4 * s, y - 4 * s, x, y);
-    ctx.quadraticCurveTo(x + 4 * s, y - 4 * s, x + 9 * s, y + 3 * s);
+    ctx.moveTo(x - 10 * s, y + (2 + f * 2) * s);
+    ctx.quadraticCurveTo(x - 5 * s, y - (3 + f * 3) * s, x, y + f * s);
+    ctx.quadraticCurveTo(x + 5 * s, y - (3 + f * 3) * s, x + 10 * s, y + (2 + f * 2) * s);
     ctx.stroke();
+    ctx.fillStyle = '#3d4a52';
+    ctx.beginPath(); ctx.ellipse(x, y + f * s, 2.4 * s, 1.3 * s, 0, 0, Math.PI * 2); ctx.fill();
   }
 }
 function drawPole(ctx, t, wind) {
@@ -1052,26 +1383,45 @@ function drawPole(ctx, t, wind) {
   const x = anchor.x;
   const top = groundY - 270;
   ctx.save();
-  // 杆身（水泥质感）
+  // 杆身（水泥质感：受光面 + 背光面 + 环向纹理）
   const g = ctx.createLinearGradient(x - 5, 0, x + 5, 0);
-  g.addColorStop(0, '#aab4bb'); g.addColorStop(0.5, '#e4e9ec'); g.addColorStop(1, '#939ea6');
+  g.addColorStop(0, '#8d979e'); g.addColorStop(0.45, '#d9dee2'); g.addColorStop(1, '#7e888f');
   ctx.fillStyle = g;
   ctx.fillRect(x - 5, top, 10, groundY - top);
-  // 底座
-  ctx.fillStyle = '#79838b';
-  ctx.fillRect(x - 8, groundY - 6, 16, 6);
-  // 横担 ×2
-  ctx.strokeStyle = '#6d767d'; ctx.lineWidth = 4.5;
+  // 环向接缝（分段浇筑的水泥杆）
+  ctx.fillStyle = 'rgba(90,100,108,.35)';
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(x - 5, top + 52 + i * 44, 10, 2.5);
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.35)';
+  ctx.fillRect(x - 3, top + 2, 2, groundY - top - 4);
+  // 底座（加宽基座）
+  const bg = ctx.createLinearGradient(x - 9, 0, x + 9, 0);
+  bg.addColorStop(0, '#5f686f'); bg.addColorStop(0.5, '#8a939a'); bg.addColorStop(1, '#525b62');
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.moveTo(x - 9, groundY - 6); ctx.lineTo(x - 6, groundY - 26);
+  ctx.lineTo(x + 6, groundY - 26); ctx.lineTo(x + 9, groundY - 6);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#707a81';
+  ctx.fillRect(x - 9, groundY - 6, 18, 6);
+  // 横担 ×2（金属臂）
+  ctx.strokeStyle = '#5c656c'; ctx.lineWidth = 4.5;
   ctx.beginPath(); ctx.moveTo(x - 4, top + 42); ctx.lineTo(x - 72, top + 32); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x + 4, top + 42); ctx.lineTo(x + 72, top + 32); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x - 4, top + 84); ctx.lineTo(x - 56, top + 76); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x + 4, top + 84); ctx.lineTo(x + 56, top + 76); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x - 4, top + 41); ctx.lineTo(x - 72, top + 31); ctx.stroke();
   // 绝缘子
   ctx.fillStyle = '#c3ccd2';
   for (const [ix, iy] of [[x - 72, top + 34], [x + 72, top + 34], [x - 56, top + 78], [x + 56, top + 78]]) {
     ctx.fillRect(ix - 3, iy, 6, 10);
+    ctx.fillStyle = '#a4adb4';
+    ctx.fillRect(ix - 3, iy, 6, 3);
+    ctx.fillStyle = '#c3ccd2';
   }
-  // 电线（向两侧垂去）
+  // 电线（向两侧垂去，带自然弧垂）
   ctx.strokeStyle = '#7c868d'; ctx.lineWidth = 1.4;
   ctx.beginPath();
   ctx.moveTo(x - 72, top + 32);
@@ -1081,11 +1431,20 @@ function drawPole(ctx, t, wind) {
   ctx.moveTo(x + 72, top + 32);
   ctx.quadraticCurveTo(x + 130, top + 58, x + 200, top + 42);
   ctx.stroke();
-  // 灯臂 + 路灯
+  // 灯臂 + 路灯（黄昏点亮的暖光）
   ctx.strokeStyle = '#79838b'; ctx.lineWidth = 3.5;
   ctx.beginPath(); ctx.moveTo(x + 4, top + 96); ctx.lineTo(x + 34, top + 104); ctx.stroke();
+  const lx = x + 40, ly = top + 108;
+  const lg = ctx.createRadialGradient(lx, ly, 2, lx, ly, 26);
+  lg.addColorStop(0, 'rgba(255,210,120,.55)');
+  lg.addColorStop(0.5, 'rgba(255,190,100,.18)');
+  lg.addColorStop(1, 'rgba(255,190,100,0)');
+  ctx.fillStyle = lg;
+  ctx.beginPath(); ctx.arc(lx, ly, 26, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#ffd76e';
-  ctx.beginPath(); ctx.ellipse(x + 40, top + 108, 7, 4.5, -0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(lx, ly, 7, 4.5, -0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff4cf';
+  ctx.beginPath(); ctx.ellipse(lx - 1.5, ly - 1, 3.4, 2.2, -0.3, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
 function drawFlag(ctx, t, wind) {
@@ -1196,7 +1555,7 @@ const LEVELS = [
   {
     name: '场景1 · 海滨城市', scene: 'seaside',
     anchor: { type: 'pole', x: 0.5, name: '电线杆' },
-    desc: '海风起！把抱着电线杆的美女吹上天！',
+    desc: '海风起！把压着裙摆的金发美女吹上天！',
     items: [
       { type: 'person', x: 0.5, look: 'woman' },
       { type: 'parasol', x: 0.74 },
