@@ -7,6 +7,8 @@
 
 ## 怎么运行
 
+**手机直接玩（线上）**：https://wxh-wxy.github.io/blow-game/
+
 **电脑**：直接双击 `index.html`（Chrome/Edge 中 `file://` 也可用麦克风），或点「演示模式」用鼠标/空格吹。
 
 **手机**：浏览器调麦克风必须 HTTPS。任选：
