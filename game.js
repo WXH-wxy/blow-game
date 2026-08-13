@@ -357,10 +357,13 @@ function drawParticles(ctx) {
 
 /* ==================== 物体 ==================== */
 const OBJ_TYPES = {
-  leaf:     { mass: 0.8, area: 0.9,  h: 14, color: '#7ec850' },
-  hat:      { mass: 2.4, area: 1.5,  h: 20, color: '#e6c56b' },
-  umbrella: { mass: 3.2, area: 2.6,  h: 34, color: '#e74c3c' },
-  person:   { mass: 10,  area: 3.0,  h: 58, color: '#e74c3c' },
+  leaf:      { mass: 0.8, area: 0.9,  h: 14, color: '#7ec850' },
+  hat:       { mass: 2.4, area: 1.5,  h: 20, color: '#e6c56b' },
+  umbrella:  { mass: 3.2, area: 2.6,  h: 34, color: '#e74c3c' },
+  sunhat:    { mass: 2.0, area: 1.6,  h: 18, color: '#f1c40f' },
+  parasol:   { mass: 3.0, area: 3.0,  h: 36, color: '#e74c3c' },
+  beachball: { mass: 1.5, area: 1.6,  h: 26, color: '#f1c40f' },
+  person:    { mass: 10,  area: 3.0,  h: 58, color: '#e74c3c' },
 };
 
 class Obj {
@@ -405,21 +408,27 @@ class Obj {
 }
 
 class Person extends Obj {
-  constructor(x, groundY) {
+  constructor(x, groundY, look) {
     super('person', x, groundY);
-    this.grip = 1;        // 抓力 0~1
-    this.released = 0;    // 脱手次数（掉回来会重新抱住）
+    this.look = look || 'man';
+    this.grip = 1;          // 抓力 0~1
+    this.released = 0;      // 脱手次数（掉回来会重新抱住）
     this.shake = 0;
     this.sweat = false;
-    this.state = 'grip';  // grip | free | gone
+    this.state = 'grip';    // grip | free | gone
+    // 抱姿几何：不同形象/固定物站位略有差异
+    this.hugDX = this.look === 'woman' ? -10 : -14; // 相对固定物的横向偏移
+    this.hugY = this.look === 'woman' ? 30 : 24;    // 脚底到重心的距离
+    this.barY = this.look === 'woman' ? 58 : 66;    // 抓力条离重心的距离
+    this.pronoun = this.look === 'woman' ? '她' : '他';
   }
   update(dt, wind, onRegrip) {
-    const { H, groundY, treeX } = world;
-    if (this.state === 'gone') return;
+    const { groundY, anchor } = world;
+    if (this.state === 'gone' || !anchor) return;
     if (this.state === 'grip') {
-      // 站在树左边，手抱住树干
-      this.x = treeX - 14 + Math.sin(now() / 70 + this.phase) * this.shake * 5;
-      this.y = groundY - 24;
+      // 站在固定物左侧，双手抱住
+      this.x = anchor.x + this.hugDX + Math.sin(now() / 70 + this.phase) * this.shake * 5;
+      this.y = groundY - this.hugY;
       this.rot = Math.sin(now() / 70 + this.phase) * 0.08 * this.shake;
       if (wind > TUNE.HOLD_MIN) this.grip -= (wind - TUNE.HOLD_MIN) * TUNE.HOLD_DRAIN * dt;
       else if (wind < TUNE.HOLD_RELAX) this.grip = Math.min(1, this.grip + TUNE.HOLD_RECOVER * dt);
@@ -433,7 +442,7 @@ class Person extends Obj {
         this.rotV = (Math.random() < 0.5 ? -1 : 1) * rand(2.5, 4.5);
         this.vx = rand(-30, 30);
         sfx.bigPop();
-        toast('💨 他脱手了！');
+        toast(`💨 ${this.pronoun}脱手了！`);
       }
     } else if (this.state === 'free') {
       this.vy += (TUNE.GRAVITY - this.liftAccel(wind)) * dt;
@@ -442,11 +451,11 @@ class Person extends Obj {
       this.vx *= (1 - 0.8 * dt);
       this.x += this.vx * dt + Math.sin(now() / 200) * 10 * dt * (0.3 + wind);
       this.y += this.vy * dt;
-      // 掉回地面 → 又抱住树（原谅型设计）
-      if (this.vy > 0 && this.y >= groundY - 24) {
-        this.y = groundY - 24; this.vy = 0; this.rotV = 0; this.rot = 0;
+      // 掉回地面 → 又抱住固定物（原谅型设计）
+      if (this.vy > 0 && this.y >= groundY - this.hugY) {
+        this.y = groundY - this.hugY; this.vy = 0; this.rotV = 0; this.rot = 0;
         this.state = 'grip'; this.grip = 1;
-        if (onRegrip) onRegrip(this.released);
+        if (onRegrip) onRegrip(this);
       }
       if (this.y < -90) {
         this.state = 'gone'; this.gone = true;
@@ -492,7 +501,7 @@ function drawUmbrella(ctx, o) {
   ctx.globalAlpha = 1;
   ctx.restore();
 }
-function drawPerson(ctx, o, t) {
+function drawMan(ctx, o, t) {
   ctx.save();
   ctx.translate(o.x, o.y);
   ctx.rotate(o.rot);
@@ -508,12 +517,12 @@ function drawPerson(ctx, o, t) {
     ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 8;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -26); ctx.stroke();
     // 手臂：从肩膀伸向树干（树在右侧）
-    const trunkX = world.treeX - o.x;
+    const ax = world.anchor.x - o.x;
     ctx.strokeStyle = '#ffd9b3'; ctx.lineWidth = 4.5;
     ctx.beginPath(); ctx.moveTo(0, -24);
-    ctx.quadraticCurveTo(trunkX * 0.6, -30, trunkX, -26); ctx.stroke();
+    ctx.quadraticCurveTo(ax * 0.6, -30, ax, -26); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, -24);
-    ctx.quadraticCurveTo(trunkX * 0.6, -22, trunkX, -18); ctx.stroke();
+    ctx.quadraticCurveTo(ax * 0.6, -22, ax, -18); ctx.stroke();
     // 头
     ctx.fillStyle = '#ffd9b3';
     ctx.beginPath(); ctx.arc(0, -38, 8, 0, Math.PI * 2); ctx.fill();
@@ -560,8 +569,216 @@ function drawObj(ctx, o) {
   }
   if (o.type === 'leaf') drawLeaf(ctx, o);
   else if (o.type === 'hat') drawHat(ctx, o);
+  else if (o.type === 'sunhat') drawSunhat(ctx, o);
   else if (o.type === 'umbrella') drawUmbrella(ctx, o);
-  else drawPerson(ctx, o, now());
+  else if (o.type === 'parasol') drawParasol(ctx, o);
+  else if (o.type === 'beachball') drawBeachBall(ctx, o);
+  else if (o.type === 'person') drawPerson(ctx, o, now());
+}
+function drawPerson(ctx, o, t) {
+  if (o.look === 'woman') drawWoman(ctx, o, t);
+  else drawMan(ctx, o, t);
+}
+
+/* ---------- 海滨物品 ---------- */
+function drawSunhat(ctx, o) {
+  ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.rot);
+  ctx.fillStyle = '#f6d77b'; // 草编帽
+  ctx.beginPath(); ctx.ellipse(0, 4, 15, 5, 0, 0, Math.PI * 2); ctx.fill(); // 帽檐
+  ctx.beginPath(); ctx.moveTo(-9, 3); ctx.quadraticCurveTo(0, -12, 9, 3); ctx.closePath(); ctx.fill(); // 帽顶
+  ctx.fillStyle = '#5aa7de'; // 蓝色缎带
+  ctx.fillRect(-9, 1, 18, 2.6);
+  ctx.restore();
+}
+function drawParasol(ctx, o) {
+  ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.rot);
+  ctx.strokeStyle = '#8a7a4f'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(0, 18); ctx.stroke(); // 伞杆
+  const R = 18, seg = 8; // 红白相间伞面
+  for (let i = 0; i < seg; i++) {
+    const a0 = Math.PI + i * Math.PI / seg, a1 = Math.PI + (i + 1) * Math.PI / seg;
+    ctx.fillStyle = i % 2 ? '#fdfdfd' : '#e74c3c';
+    ctx.beginPath(); ctx.moveTo(0, -4);
+    ctx.arc(0, -4, R, a0, a1);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,.2)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(0, -4, R, Math.PI, 0); ctx.stroke();
+  ctx.fillStyle = '#f1c40f';
+  ctx.beginPath(); ctx.arc(0, -4, 2.5, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawBeachBall(ctx, o) {
+  ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(o.rot);
+  const R = 13;
+  const cols = ['#e74c3c', '#f1c40f', '#3498db'];
+  for (let i = 0; i < 3; i++) {
+    const a0 = i * Math.PI * 2 / 3 - Math.PI / 2, a1 = a0 + Math.PI * 2 / 3;
+    ctx.fillStyle = cols[i];
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, a0, a1); ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+/* ---------- 美女角色（连衣裙）：裙摆扬起、长发飘动 ---------- */
+function drawWoman(ctx, o, t) {
+  const wind = input.wind;
+  const blow = clamp(wind * 1.4 + (o.state === 'free' ? 0.6 : 0), 0, 1); // 裙摆扬起程度 0~1
+  const flap = Math.sin(t / 70);
+  ctx.save();
+  ctx.translate(o.x, o.y);
+  ctx.rotate(o.rot);
+  ctx.translate((Math.random() - 0.5) * o.shake * 3, 0);
+  ctx.lineCap = 'round';
+
+  const skin = '#f4d2b0';
+  const dress = '#fdfdfd', dressShade = '#e3e3ee';
+  const hairCol = '#4a3320';
+
+  if (o.state === 'grip') {
+    // ---- 站姿：双手抱住右侧电线杆，裙摆被风吹起 ----
+    const skirtY = 6;                          // 腰部（相对重心）
+    const hemBase = skirtY + 17;               // 无风时裙摆位置
+    const hemY = hemBase - blow * 40 + flap * blow * 5;
+    // 腿
+    ctx.strokeStyle = skin; ctx.lineWidth = 5.5;
+    ctx.beginPath(); ctx.moveTo(-4, skirtY + 4); ctx.lineTo(-6, 30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(5, skirtY + 4); ctx.lineTo(8, 30); ctx.stroke();
+    // 高跟鞋
+    ctx.fillStyle = '#c0392b';
+    ctx.beginPath(); ctx.ellipse(-7, 31, 3.5, 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(9, 31, 3.5, 2, 0, 0, Math.PI * 2); ctx.fill();
+    // 安全裤（裙摆扬起时可见，卡通化处理）
+    if (blow > 0.3) {
+      ctx.fillStyle = '#ffe9f2';
+      ctx.beginPath();
+      ctx.moveTo(-5, skirtY + 3); ctx.lineTo(-6.5, hemY - 3);
+      ctx.lineTo(6.5, hemY - 3); ctx.lineTo(5, skirtY + 3);
+      ctx.closePath(); ctx.fill();
+    }
+    // 裙摆（喇叭形，随风向上吹起）
+    ctx.fillStyle = dress;
+    ctx.strokeStyle = dressShade; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-6, skirtY);
+    ctx.quadraticCurveTo(-17 - blow * 12, (skirtY + hemY) / 2 + flap * blow * 3, -15 - blow * 16, hemY + flap * blow * 5);
+    ctx.quadraticCurveTo(0, hemY + 5 + flap * blow * 4, 15 + blow * 16, hemY + flap * blow * 5);
+    ctx.quadraticCurveTo(12 + blow * 10, (skirtY + hemY) / 2 - flap * blow * 3, 6, skirtY);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // 上身（贴身连衣裙）
+    ctx.fillStyle = dress;
+    ctx.beginPath();
+    ctx.moveTo(-6, skirtY);
+    ctx.quadraticCurveTo(-9.5, -9, -5.5, -17);
+    ctx.lineTo(5.5, -17);
+    ctx.quadraticCurveTo(9.5, -9, 6, skirtY);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // 束腰
+    ctx.strokeStyle = '#f6c9d8'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-6.5, skirtY - 1); ctx.lineTo(6.5, skirtY - 1); ctx.stroke();
+    // 手臂：抱住右侧的电线杆
+    const px = world.anchor.x - o.x;
+    ctx.strokeStyle = skin; ctx.lineWidth = 4.2;
+    ctx.beginPath(); ctx.moveTo(-4, -14);
+    ctx.quadraticCurveTo(px * 0.5, -19, px, -13); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(4, -14);
+    ctx.quadraticCurveTo(px * 0.55, -8, px, -3); ctx.stroke();
+    // 头
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(0, -27, 9.5, 0, Math.PI * 2); ctx.fill();
+    // 表情
+    if (o.grip < 0.3 || wind > 0.75) {
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(-3.5, -28, 2.4, 0, Math.PI * 2); ctx.arc(3.5, -28, 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#222';
+      ctx.beginPath(); ctx.arc(-3.5, -28, 1.2, 0, Math.PI * 2); ctx.arc(3.5, -28, 1.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#c0392b';
+      ctx.beginPath(); ctx.ellipse(0, -21, 2.4, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.strokeStyle = '#5b4632'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(-5, -28); ctx.lineTo(-2, -26); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(5, -28); ctx.lineTo(2, -26); ctx.stroke();
+      ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(0, -21, 2.6, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+    }
+    // 腮红
+    ctx.fillStyle = 'rgba(255,120,130,.45)';
+    ctx.beginPath(); ctx.arc(-7.5, -23, 2.6, 0, Math.PI * 2); ctx.arc(7.5, -23, 2.6, 0, Math.PI * 2); ctx.fill();
+    // 汗珠
+    if (o.sweat) {
+      ctx.fillStyle = '#5ec8f0';
+      const sw = Math.sin(t / 90);
+      if (sw > 0.2) { ctx.beginPath(); ctx.arc(-11, -33, 2.4, 0, Math.PI * 2); ctx.fill(); }
+      if (sw < -0.2) { ctx.beginPath(); ctx.arc(11, -36, 1.8, 0, Math.PI * 2); ctx.fill(); }
+    }
+    // 长发（被风吹起）
+    drawHair(ctx, t, blow, flap, hairCol);
+  } else {
+    // ---- 被吹飞：四肢乱甩，裙发狂飘 ----
+    const a1 = Math.sin(t / 60) * 1.2, a2 = Math.sin(t / 60 + 2) * 1.2;
+    ctx.strokeStyle = skin; ctx.lineWidth = 5.5;
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a1 + 0.6) * 26, Math.sin(a1 + 0.6) * 26); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a2 + 0.6) * 26, Math.sin(a2 + 0.6) * 26); ctx.stroke();
+    // 安全裤
+    ctx.fillStyle = '#ffe9f2';
+    ctx.beginPath(); ctx.ellipse(0, 2, 7, 9, 0, 0, Math.PI * 2); ctx.fill();
+    // 裙摆（炸开）
+    ctx.fillStyle = dress; ctx.strokeStyle = dressShade; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(-6, 4);
+    ctx.quadraticCurveTo(-24, -2 + flap * 6, -16, -22 + flap * 8);
+    ctx.quadraticCurveTo(0, -26 + flap * 6, 16, -22 + flap * 8);
+    ctx.quadraticCurveTo(24, -2 + flap * 6, 6, 4);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // 上身
+    ctx.fillStyle = dress;
+    ctx.beginPath();
+    ctx.moveTo(-6, 4);
+    ctx.quadraticCurveTo(-9, -12, -5, -20);
+    ctx.lineTo(5, -20);
+    ctx.quadraticCurveTo(9, -12, 6, 4);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    // 手臂乱甩
+    ctx.strokeStyle = skin; ctx.lineWidth = 4.2;
+    ctx.beginPath(); ctx.moveTo(-4, -17);
+    ctx.lineTo(Math.cos(a1) * 20, -17 + Math.sin(a1) * 20); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(4, -17);
+    ctx.lineTo(Math.cos(a2) * 20, -17 + Math.sin(a2) * 20); ctx.stroke();
+    // 头 + 惊慌脸
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.arc(0, -30, 9.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(-3.5, -31, 2.4, 0, Math.PI * 2); ctx.arc(3.5, -31, 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.arc(-3.5, -31, 1.2, 0, Math.PI * 2); ctx.arc(3.5, -31, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#c0392b';
+    ctx.beginPath(); ctx.ellipse(0, -24, 2.4, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+    drawHair(ctx, t, 1, flap, hairCol);
+  }
+  ctx.restore();
+}
+function drawHair(ctx, t, blow, flap, color) {
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+  const n = 5;
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI * (0.15 + i * 0.11); // 向后上方散开
+    const len = 15 + blow * 26 + Math.sin(t / 80 + i) * 3;
+    ctx.lineWidth = 4.5 - i * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 7, -27 + Math.sin(a) * 7);
+    const mx = Math.cos(a) * len * 0.6, my = -27 + Math.sin(a) * len * 0.6 - blow * 6 + flap * 2;
+    const ex = Math.cos(a) * len, ey = -27 + Math.sin(a) * len - blow * 14 + flap * 4;
+    ctx.quadraticCurveTo(mx, my, ex, ey);
+    ctx.stroke();
+  }
 }
 
 /* ==================== 场景绘制 ==================== */
@@ -577,21 +794,28 @@ function buildScenery() {
     grass.push({ x: rand(0, W), h: rand(6, 16), tilt: rand(-3, 3) });
   }
 }
+/* ==================== 场景绘制 ==================== */
+const PAINTERS = {
+  village: paintVillage,
+  seaside: paintSeaside,
+};
 function drawScene(ctx, t, wind) {
+  const painter = PAINTERS[level && level.scene] || PAINTERS.village;
+  painter(ctx, t, wind);
+  // 大风时画面泛白（所有场景通用）
+  if (wind > 0.35) {
+    ctx.fillStyle = `rgba(255,255,255,${(wind - 0.35) * 0.25})`;
+    ctx.fillRect(0, 0, world.W, world.H);
+  }
+}
+function paintVillage(ctx, t, wind) {
   const { W, H, groundY } = world;
   // 天空
   const g = ctx.createLinearGradient(0, 0, 0, H);
   g.addColorStop(0, '#5fa8e8'); g.addColorStop(1, '#cfe9fb');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   // 云（随风飘）
-  ctx.fillStyle = 'rgba(255,255,255,.85)';
-  for (const c of clouds) {
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, 16 * c.s, 0, Math.PI * 2);
-    ctx.arc(c.x + 18 * c.s, c.y - 6 * c.s, 12 * c.s, 0, Math.PI * 2);
-    ctx.arc(c.x + 34 * c.s, c.y, 14 * c.s, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  drawClouds(ctx, t, wind);
   // 远山
   ctx.fillStyle = '#a8cf96';
   ctx.beginPath(); ctx.arc(W * 0.15, groundY + 40, W * 0.55, Math.PI, 0); ctx.fill();
@@ -607,19 +831,219 @@ function drawScene(ctx, t, wind) {
     ctx.lineTo(b.x + b.tilt, groundY + 4 - b.h);
     ctx.stroke();
   }
-  // 树（第2关）
-  if (level && level.tree) drawTree(ctx, t, wind);
-  // 大风时画面泛白
-  if (wind > 0.35) {
-    ctx.fillStyle = `rgba(255,255,255,${(wind - 0.35) * 0.25})`;
-    ctx.fillRect(0, 0, W, H);
+  // 树（守树人关）
+  if (world.anchor && world.anchor.type === 'tree') drawTree(ctx, t, wind);
+}
+function drawClouds(ctx, t, wind) {
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  for (const c of clouds) {
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 16 * c.s, 0, Math.PI * 2);
+    ctx.arc(c.x + 18 * c.s, c.y - 6 * c.s, 12 * c.s, 0, Math.PI * 2);
+    ctx.arc(c.x + 34 * c.s, c.y, 14 * c.s, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
+/* ---------- 海滨城市：海 / 沙滩 / 建筑 / 海鸥 / 电线杆 ---------- */
+function paintSeaside(ctx, t, wind) {
+  const { W, H, groundY } = world;
+  // 天空
+  const g = ctx.createLinearGradient(0, 0, 0, groundY);
+  g.addColorStop(0, '#4fb2f2'); g.addColorStop(1, '#eaf9ff');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // 太阳
+  const sunX = W * 0.82, sunY = H * 0.15;
+  const rg = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, 70);
+  rg.addColorStop(0, 'rgba(255,246,180,1)');
+  rg.addColorStop(0.3, 'rgba(255,240,150,.55)');
+  rg.addColorStop(1, 'rgba(255,240,150,0)');
+  ctx.fillStyle = rg; ctx.fillRect(sunX - 70, sunY - 70, 140, 140);
+  ctx.fillStyle = '#fff3b8';
+  ctx.beginPath(); ctx.arc(sunX, sunY, 20, 0, Math.PI * 2); ctx.fill();
+  // 云
+  drawClouds(ctx, t, wind);
+  // 海
+  const horizon = H * 0.33, shore = H * 0.54;
+  const sg = ctx.createLinearGradient(0, horizon, 0, shore);
+  sg.addColorStop(0, '#1f7fc4'); sg.addColorStop(1, '#57c2e6');
+  ctx.fillStyle = sg; ctx.fillRect(0, horizon, W, shore - horizon);
+  // 海浪（风越大越乱）
+  ctx.strokeStyle = 'rgba(255,255,255,.65)';
+  for (let i = 0; i < 3; i++) {
+    const yy = horizon + (shore - horizon) * (0.22 + i * 0.32);
+    ctx.lineWidth = 1.2 + i * 0.6;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 8) {
+      const yw = yy + Math.sin(x / 24 + t / 480 + i * 2.1) * (1.5 + wind * 5 + i * 0.8);
+      if (x === 0) ctx.moveTo(x, yw); else ctx.lineTo(x, yw);
+    }
+    ctx.stroke();
+  }
+  // 浪花点
+  ctx.fillStyle = 'rgba(255,255,255,.8)';
+  for (let i = 0; i < 8; i++) {
+    const fx = (i * 61 + t * (0.01 + wind * 0.06)) % W;
+    const fy = shore - 4 + Math.sin(i * 3.7) * 5;
+    ctx.beginPath(); ctx.arc(fx, fy, 2, 0, Math.PI * 2); ctx.fill();
+  }
+  // 沙滩
+  ctx.fillStyle = '#f2dfae';
+  ctx.beginPath();
+  ctx.moveTo(0, shore);
+  ctx.quadraticCurveTo(W * 0.5, shore - 7, W, shore);
+  ctx.lineTo(W, groundY - 34);
+  ctx.lineTo(0, groundY - 34);
+  ctx.closePath(); ctx.fill();
+  // 沙地波纹
+  ctx.strokeStyle = 'rgba(200,170,110,.5)'; ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i++) {
+    const yy = shore + 14 + i * 22;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 6) {
+      const yw = yy + Math.sin(x / 20 + i) * 3;
+      if (x === 0) ctx.moveTo(x, yw); else ctx.lineTo(x, yw);
+    }
+    ctx.stroke();
+  }
+  // 建筑群（两侧，中间留出海景）
+  drawBuilding(ctx, -W * 0.05, H * 0.24, W * 0.27, '#f4a261', t, wind);
+  drawBuilding(ctx, W * 0.70, H * 0.22, W * 0.33, '#8fc98f', t, wind);
+  drawBuilding(ctx, W * 0.26, H * 0.34, W * 0.17, '#f7c873', t, wind);
+  // 海鸥（风大时被吹高）
+  drawGulls(ctx, t, wind);
+  // 街道
+  ctx.fillStyle = '#aeb6bd';
+  ctx.fillRect(0, groundY - 46, W, 46);
+  ctx.fillStyle = '#c6cdd2';
+  ctx.fillRect(0, groundY - 50, W, 6);
+  ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 4;
+  ctx.setLineDash([16, 14]);
+  ctx.beginPath(); ctx.moveTo(0, groundY - 24); ctx.lineTo(W, groundY - 24); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#96a1a9';
+  ctx.fillRect(0, groundY - 52, W, 2);
+  // 电线杆（人物抱住的固定物）
+  if (world.anchor && world.anchor.type === 'pole') drawPole(ctx, t, wind);
+  // 楼顶小旗（随风狂飘）
+  drawFlag(ctx, t, wind);
+}
+function drawBuilding(ctx, x, topY, w, color, t, wind) {
+  const { groundY } = world;
+  const bottomY = groundY - 48;
+  const h = bottomY - topY;
+  if (h < 40) return;
+  ctx.fillStyle = color;
+  ctx.fillRect(x, topY, w, h);
+  ctx.fillStyle = 'rgba(0,0,0,.08)';
+  ctx.fillRect(x + w - 6, topY, 6, h);
+  ctx.fillStyle = 'rgba(0,0,0,.18)';
+  ctx.fillRect(x - 3, topY - 4, w + 6, 8);
+  // 窗户
+  const cols = Math.max(1, Math.floor(w / 26));
+  const rows = Math.max(1, Math.floor(h / 42));
+  const cw = (w - 16) / cols, ch = Math.min(20, (h - 24) / rows);
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const wx = x + 8 + c * cw + (cw - 13) / 2, wy = topY + 12 + r * ch;
+      if (wy + 14 < bottomY - 6) {
+        ctx.fillRect(wx, wy, 13, 14);
+        ctx.strokeRect(wx, wy, 13, 14);
+      }
+    }
+  }
+  // 遮阳篷（风大上扬）
+  const aw = w * 0.5, ax = x + w * 0.25, ay = topY + 8 + h * 0.3;
+  ctx.save();
+  ctx.translate(ax + aw / 2, ay);
+  ctx.transform(1, -wind * 0.6 - Math.sin(t / 700) * 0.08, 0, 1, 0, 0);
+  for (let i = 0; i < 4; i++) {
+    ctx.fillStyle = i % 2 ? '#f6f6f6' : '#e74c3c';
+    ctx.fillRect(-aw / 2 + (i * aw) / 4, 0, aw / 4 + 1, 13);
+  }
+  ctx.restore();
+}
+function drawGulls(ctx, t, wind) {
+  const { W, H } = world;
+  const gulls = [
+    { x0: 0.2, y0: 0.22, s: 1.0, ph: 0 },
+    { x0: 0.5, y0: 0.26, s: 0.7, ph: 2 },
+    { x0: 0.75, y0: 0.19, s: 0.85, ph: 4 },
+  ];
+  ctx.strokeStyle = '#5b6a72'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  for (const gu of gulls) {
+    const x = ((gu.x0 * W + t * (8 + wind * 60)) % (W + 80)) - 40;
+    const y = gu.y0 * H - wind * 46 + Math.sin(t / 700 + gu.ph) * 6;
+    const s = gu.s;
+    ctx.beginPath();
+    ctx.moveTo(x - 9 * s, y + 3 * s);
+    ctx.quadraticCurveTo(x - 4 * s, y - 4 * s, x, y);
+    ctx.quadraticCurveTo(x + 4 * s, y - 4 * s, x + 9 * s, y + 3 * s);
+    ctx.stroke();
+  }
+}
+function drawPole(ctx, t, wind) {
+  const { groundY, anchor } = world;
+  const x = anchor.x;
+  const top = groundY - 270;
+  ctx.save();
+  // 杆身（水泥质感）
+  const g = ctx.createLinearGradient(x - 5, 0, x + 5, 0);
+  g.addColorStop(0, '#aab4bb'); g.addColorStop(0.5, '#e4e9ec'); g.addColorStop(1, '#939ea6');
+  ctx.fillStyle = g;
+  ctx.fillRect(x - 5, top, 10, groundY - top);
+  // 底座
+  ctx.fillStyle = '#79838b';
+  ctx.fillRect(x - 8, groundY - 6, 16, 6);
+  // 横担 ×2
+  ctx.strokeStyle = '#6d767d'; ctx.lineWidth = 4.5;
+  ctx.beginPath(); ctx.moveTo(x - 4, top + 42); ctx.lineTo(x - 72, top + 32); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + 4, top + 42); ctx.lineTo(x + 72, top + 32); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - 4, top + 84); ctx.lineTo(x - 56, top + 76); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x + 4, top + 84); ctx.lineTo(x + 56, top + 76); ctx.stroke();
+  // 绝缘子
+  ctx.fillStyle = '#c3ccd2';
+  for (const [ix, iy] of [[x - 72, top + 34], [x + 72, top + 34], [x - 56, top + 78], [x + 56, top + 78]]) {
+    ctx.fillRect(ix - 3, iy, 6, 10);
+  }
+  // 电线（向两侧垂去）
+  ctx.strokeStyle = '#7c868d'; ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x - 72, top + 32);
+  ctx.quadraticCurveTo(x - 130, top + 58, x - 200, top + 42);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x + 72, top + 32);
+  ctx.quadraticCurveTo(x + 130, top + 58, x + 200, top + 42);
+  ctx.stroke();
+  // 灯臂 + 路灯
+  ctx.strokeStyle = '#79838b'; ctx.lineWidth = 3.5;
+  ctx.beginPath(); ctx.moveTo(x + 4, top + 96); ctx.lineTo(x + 34, top + 104); ctx.stroke();
+  ctx.fillStyle = '#ffd76e';
+  ctx.beginPath(); ctx.ellipse(x + 40, top + 108, 7, 4.5, -0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawFlag(ctx, t, wind) {
+  const { W, H } = world;
+  const fx = W * 0.83, fy = H * 0.265;
+  ctx.strokeStyle = '#8a7a4f'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - 26); ctx.stroke();
+  const wave = Math.sin(t / 110) * (1 + wind * 3);
+  ctx.fillStyle = '#e74c3c';
+  ctx.beginPath();
+  ctx.moveTo(fx, fy - 26);
+  ctx.quadraticCurveTo(fx + 14, fy - 22 + wave, fx + 26, fy - 26 + wave * 1.4);
+  ctx.lineTo(fx + 26, fy - 14);
+  ctx.quadraticCurveTo(fx + 14, fy - 16, fx, fy - 14);
+  ctx.closePath(); ctx.fill();
+}
+
 function drawTree(ctx, t, wind) {
-  const { groundY, treeX } = world;
+  const { groundY, anchor } = world;
   const sway = Math.sin(t / 600) * 0.03 + wind * 0.06;
   ctx.save();
-  ctx.translate(treeX, groundY);
+  ctx.translate(anchor.x, groundY);
   ctx.rotate(sway * 0.4);
   ctx.fillStyle = '#8d6e63';
   ctx.fillRect(-9, -150, 18, 150); // 树干
@@ -635,7 +1059,7 @@ function drawTree(ctx, t, wind) {
 }
 function drawGripBar(ctx, o, wind) {
   if (o.state !== 'grip' || !(o.grip < 1 || wind > 0.35)) return;
-  const bx = o.x - 16, by = o.y - 66;
+  const bx = o.x - 16, by = o.y - o.barY;
   ctx.fillStyle = 'rgba(0,0,0,.4)';
   ctx.beginPath(); ctx.roundRect(bx, by, 32, 6, 3); ctx.fill();
   ctx.fillStyle = o.grip > 0.4 ? '#ffd54f' : '#ff5252';
@@ -643,9 +1067,10 @@ function drawGripBar(ctx, o, wind) {
 }
 
 /* ==================== 关卡与流程 ==================== */
+// 场景规划：热身两关 + 3 个主场景（场景2/3 占位，敬请期待）
 const LEVELS = [
   {
-    name: '晨风村', tree: false,
+    name: '热身 · 晨风村', scene: 'village', anchor: null,
     desc: '把树叶、草帽和雨伞都吹上天！',
     items: [
       { type: 'leaf', x: 0.22, n: 5 },
@@ -654,17 +1079,31 @@ const LEVELS = [
     ],
   },
   {
-    name: '守树人', tree: true,
+    name: '热身 · 守树人', scene: 'village',
+    anchor: { type: 'tree', x: 0.5, name: '树' },
     desc: '用力吹！把抱着树的人吹飞！',
     items: [
-      { type: 'person', x: 0.5 },
+      { type: 'person', x: 0.5, look: 'man' },
       { type: 'leaf', x: 0.18, n: 4 },
       { type: 'hat', x: 0.38 },
     ],
   },
+  {
+    name: '场景1 · 海滨城市', scene: 'seaside',
+    anchor: { type: 'pole', x: 0.5, name: '电线杆' },
+    desc: '海风起！把抱着电线杆的美女吹上天！',
+    items: [
+      { type: 'person', x: 0.5, look: 'woman' },
+      { type: 'parasol', x: 0.74 },
+      { type: 'beachball', x: 0.24 },
+      { type: 'sunhat', x: 0.38 },
+    ],
+  },
+  { name: '场景2', placeholder: true },
+  { name: '场景3', placeholder: true },
 ];
 
-const world = { W: 390, H: 844, groundY: 700, treeX: 200 };
+const world = { W: 390, H: 844, groundY: 700, anchor: null }; // anchor: {type:'tree'|'pole', x, name} 人物抱住的固定物
 let state = 'start';        // start | calibrating | playing | win
 let levelIdx = 0;
 let level = null;           // 当前关卡对象
@@ -679,24 +1118,29 @@ const AUTOWIND = new URLSearchParams(location.search).has('autowind');
 const FAKEMIC = new URLSearchParams(location.search).has('fakemic');
 
 function startLevel(i) {
+  if (i < 0 || i >= LEVELS.length || LEVELS[i].placeholder) return;
   levelIdx = i;
   const L = LEVELS[i];
-  level = { name: L.name, tree: L.tree, desc: L.desc, items: [] };
-  const { W, groundY } = world;
+  level = { name: L.name, scene: L.scene, desc: L.desc, items: [] };
+  world.anchor = L.anchor
+    ? { type: L.anchor.type, x: L.anchor.x * world.W, name: L.anchor.name }
+    : null;
+  const { groundY } = world;
   for (const it of L.items) {
     const n = it.n || 1;
     for (let k = 0; k < n; k++) {
-      const x = clamp((it.x + (k - (n - 1) / 2) * 0.05) * W, 40, W - 40);
-      const o = it.type === 'person' ? new Person(x, groundY) : new Obj(it.type, x, groundY);
+      const x = clamp((it.x + (k - (n - 1) / 2) * 0.05) * world.W, 40, world.W - 40);
+      const o = it.type === 'person'
+        ? new Person(x, groundY, it.look)
+        : new Obj(it.type, x, groundY);
       level.items.push(o);
     }
   }
-  if (L.tree) world.treeX = W * 0.5;
   timeElapsed = 0;
   state = 'playing';
   levelPaused = false;
   showScreen('hud');
-  toast(`🌬️ 第${i + 1}关 · ${L.name} — ${L.desc}`);
+  toast(`🌬️ ${L.name} — ${L.desc}`);
 }
 
 function checkWin() {
@@ -706,9 +1150,10 @@ function checkWin() {
   totalTime += timeElapsed;
   totalGone += level.items.length;
   sfx.jingle();
-  if (levelIdx < LEVELS.length - 1) {
+  const next = levelIdx + 1;
+  if (next < LEVELS.length && !LEVELS[next].placeholder) {
     toast('🎉 过关！进入下一关');
-    setTimeout(() => startLevel(levelIdx + 1), 1500);
+    setTimeout(() => startLevel(next), 1500);
   } else {
     setTimeout(showWin, 900);
   }
@@ -717,10 +1162,12 @@ function checkWin() {
 function showWin() {
   state = 'win';
   const mm = Math.floor(totalTime / 60), ss = Math.floor(totalTime % 60);
+  const pending = LEVELS.filter(l => l.placeholder).length;
   $('#winStats').innerHTML =
     `⏱️ 总用时 ${mm}:${String(ss).padStart(2, '0')}<br>` +
     `💨 最大风力 ${Math.round(maxWindAll * 100)}%<br>` +
-    `🎈 吹飞物品 ${totalGone} 件`;
+    `🎈 吹飞物品 ${totalGone} 件` +
+    (pending > 0 ? `<br><span style="opacity:.75">🎬 还有 ${pending} 个场景制作中，敬请期待！</span>` : '');
   showScreen('win');
 }
 function showStart() {
@@ -804,7 +1251,7 @@ function updateHUD() {
   if (state === 'playing' && level) {
     const gone = level.items.filter(o => o.gone).length;
     $('#goalText').textContent = `已吹飞 ${gone} / ${level.items.length}`;
-    $('#levelName').textContent = `第${levelIdx + 1}关 · ${level.name}`;
+    $('#levelName').textContent = level.name;
   }
   // 调试面板
   const dbg = $('#debug');
@@ -845,8 +1292,8 @@ function loop(t) {
   // 自动化测试：固定循环风力
   if (AUTOWIND) {
     autoT += dt;
-    const p = (autoT % 4) / 4; // 4 秒一个周期
-    const w = clamp(p < 0.6 ? 1 : p < 0.7 ? 1 - (p - 0.6) / 0.1 : p < 0.9 ? 0.1 : 0.1 + (p - 0.9) / 0.1, 0, 1);
+    const p = (autoT % 5) / 5; // 5 秒一个周期：满风 3.5s / 降 0.6s / 停 0.4s / 缓升 0.5s
+    const w = clamp(p < 0.7 ? 1 : p < 0.82 ? 1 - (p - 0.7) / 0.12 : p < 0.9 ? 0.1 : 0.1 + (p - 0.9) / 0.1, 0, 1);
     input.wind = input.raw = w;
   } else {
     input.update(dt);
@@ -856,7 +1303,7 @@ function loop(t) {
   maxWindAll = Math.max(maxWindAll, wind);
 
   if (state === 'playing' && !levelPaused && level) {
-    const onRegrip = n => n > 0 && toast('😅 他又抱住了树！');
+    const onRegrip = p => p.released > 0 && toast(`😅 ${p.pronoun}又抱住了${world.anchor ? world.anchor.name : '树'}！`);
     for (const o of level.items) {
       if (o instanceof Person) o.update(dt, wind, onRegrip);
       else o.update(dt, wind);
