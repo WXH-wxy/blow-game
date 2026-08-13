@@ -1,0 +1,88 @@
+/* ============================================================
+ * 大风起兮 — 移动端竖屏样式
+ * ============================================================ */
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body {
+  width:100%; height:100%; overflow:hidden; background:#1b2a41;
+  font-family:system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  user-select:none; -webkit-user-select:none; overscroll-behavior:none;
+}
+body { touch-action:manipulation; }
+#game { position:fixed; inset:0; width:100%; height:100%; display:block; }
+.hidden { display:none !important; }
+
+/* ---------- HUD ---------- */
+#hud {
+  position:fixed; inset:0; z-index:10; pointer-events:none;
+  display:flex; flex-direction:column; justify-content:space-between;
+  padding:calc(10px + env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom)) 12px;
+}
+.hud-top { display:flex; justify-content:space-between; align-items:flex-start; }
+.hud-title { color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.45); }
+#levelName { font-size:20px; font-weight:800; }
+#goalText { font-size:13px; opacity:.92; margin-top:2px; }
+.hud-btns { display:flex; gap:6px; pointer-events:auto; }
+button.mini {
+  background:rgba(255,255,255,.22); color:#fff; border:1px solid rgba(255,255,255,.35);
+  border-radius:14px; padding:5px 10px; font-size:12px; cursor:pointer; backdrop-filter:blur(4px);
+}
+button.mini:active { background:rgba(255,255,255,.45); }
+
+#demoHint {
+  text-align:center; color:#fff; font-size:13px; line-height:1.6;
+  background:rgba(0,0,0,.38); border-radius:14px; padding:6px 14px;
+  width:fit-content; margin:8px auto 0; pointer-events:auto;
+}
+
+.wind-meter {
+  display:flex; align-items:center; gap:10px;
+  background:rgba(0,0,0,.30); border-radius:18px; padding:10px 14px; backdrop-filter:blur(4px);
+}
+.wind-label { color:#fff; font-size:13px; font-weight:700; opacity:.9; }
+.wind-bar { flex:1; height:18px; background:rgba(255,255,255,.18); border-radius:9px; overflow:hidden; }
+#windFill {
+  height:100%; width:0%; border-radius:9px;
+  background:linear-gradient(90deg,#4fc3f7,#66bb6a); transition:width .06s linear;
+}
+.wind-meter.hot #windFill { background:linear-gradient(90deg,#ffb74d,#ff5252); }
+#windVal { color:#fff; font-size:14px; font-weight:700; width:46px; text-align:right; }
+
+/* ---------- 调试面板 ---------- */
+#debug {
+  position:fixed; left:10px; bottom:86px; z-index:15; color:#9ff;
+  font:11px/1.55 "Consolas", monospace; white-space:pre;
+  background:rgba(0,0,0,.55); padding:6px 9px; border-radius:8px;
+}
+
+/* ---------- 全屏界面 ---------- */
+.screen {
+  position:fixed; inset:0; z-index:20;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  background:rgba(13,28,45,.55); backdrop-filter:blur(6px);
+  color:#fff; text-align:center; padding:24px;
+}
+.screen h1 { font-size:34px; margin-bottom:4px; text-shadow:0 2px 8px rgba(0,0,0,.4); }
+.screen h2 { font-size:24px; }
+.sub { font-size:17px; line-height:1.55; font-weight:600; }
+.sub2 { font-size:14px; line-height:1.7; opacity:.88; }
+.hint { font-size:12px; opacity:.6; margin-top:6px; }
+button.big {
+  pointer-events:auto; width:min(320px, 82%); padding:14px; font-size:17px; font-weight:700;
+  color:#fff; background:linear-gradient(180deg,#42a5f5,#1e88e5);
+  border:none; border-radius:16px; cursor:pointer; box-shadow:0 4px 14px rgba(0,0,0,.25);
+}
+button.big.ghost { background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.4); box-shadow:none; }
+button.big:active { transform:scale(.97); }
+
+.cal-bar { width:min(320px, 82%); height:14px; border-radius:7px; background:rgba(255,255,255,.2); overflow:hidden; }
+#calFill { height:100%; width:0%; background:#ffd54f; transition:width .05s linear; }
+#calHint { font-size:14px; opacity:.85; }
+.stats { font-size:15px; line-height:1.9; }
+
+/* ---------- Toast ---------- */
+#toast {
+  position:fixed; top:16%; left:50%; transform:translateX(-50%); z-index:30;
+  background:rgba(0,0,0,.72); color:#fff; padding:10px 18px; border-radius:16px;
+  font-size:15px; opacity:0; transition:opacity .3s; pointer-events:none; white-space:nowrap;
+}
+#toast.show { opacity:1; }
