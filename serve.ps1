@@ -14,6 +14,23 @@ while ($listener.IsListening) {
     $res = $ctx.Response
     $path = $req.Url.AbsolutePath.TrimStart('/')
     Write-Host ("REQ: " + $req.Url.AbsolutePath)
+    if ($req.HttpMethod -eq 'POST') {
+      # 上传接口：POST /upload?name=xxx.png  body 为 base64
+      $reader = New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::ASCII)
+      $b64 = $reader.ReadToEnd()
+      $bytes = [Convert]::FromBase64String($b64)
+      $name = $req.QueryString['name']
+      if (-not $name) { $name = 'upload.bin' }
+      $safe = [System.IO.Path]::GetFileName($name)
+      $dest = Join-Path $root ("assets\beauty\" + $safe)
+      [System.IO.File]::WriteAllBytes($dest, $bytes)
+      Write-Host ("UPLOAD: " + $dest + " bytes=" + $bytes.Length)
+      $res.StatusCode = 200
+      $res.ContentType = 'text/plain'
+      $ok = [System.Text.Encoding]::ASCII.GetBytes('saved ' + $safe)
+      $res.OutputStream.Write($ok, 0, $ok.Length)
+      continue
+    }
     if ($path -eq '') { $path = 'index.html' }
     $full = Join-Path $root $path
     if (Test-Path $full -PathType Leaf) {

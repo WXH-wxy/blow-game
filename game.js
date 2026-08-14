@@ -576,8 +576,48 @@ function drawObj(ctx, o) {
   else if (o.type === 'person') drawPerson(ctx, o, now());
 }
 function drawPerson(ctx, o, t) {
-  if (o.look === 'woman') drawWoman(ctx, o, t);
-  else drawMan(ctx, o, t);
+  if (o.look === 'woman') {
+    if (beautyReady()) drawBeautySprite(ctx, o, t);
+    else drawWoman(ctx, o, t);
+  } else drawMan(ctx, o, t);
+}
+/* ---------- 写真立绘绘制：条带扭曲模拟风吹（视频感） ---------- */
+function drawBeautySprite(ctx, o, t) {
+  const wind = input.wind;
+  const natW = beautyImg.naturalWidth, natH = beautyImg.naturalHeight;
+  const H = 142;                              // 立绘落地高度（px）
+  const W = natW / natH * H;
+  const feetY = o.y + o.hugY;                  // 脚底（与物理 hugY 一致，v3 美女 hugY=90）
+  const blow = clamp(wind * 1.5 + (o.state === 'free' ? 0.5 : 0), 0, 1);
+  ctx.save();
+  ctx.translate(o.x + (Math.random() - 0.5) * o.shake * 3, feetY);
+  if (o.state === 'free') {
+    ctx.rotate(o.rot);
+  } else {
+    // 抱杆时整体微微后仰 + 轻晃，风越大越明显
+    ctx.rotate(-wind * 0.06 + Math.sin(t / 90) * 0.02 * (0.3 + wind));
+  }
+  // 地面阴影
+  ctx.fillStyle = 'rgba(0,0,0,.16)';
+  ctx.beginPath(); ctx.ellipse(0, 2, W * 0.38, 4, 0, 0, Math.PI * 2); ctx.fill();
+  // 条带扭曲：14 段从下往上，波幅中段（裙摆区）最大，模拟布料/发丝被风吹动
+  const strips = 14;
+  const sh = H / strips;
+  for (let i = 0; i < strips; i++) {
+    const p = i / (strips - 1);
+    const waveW = Math.sin(p * Math.PI) * 1.15 + 0.25;  // 中段最强
+    const amp = (0.6 + blow * 4.2) * (0.35 + o.shake) * waveW;
+    const dx = Math.sin(t / 75 + i * 0.5) * amp;
+    const tilt = Math.sin(t / 95 + i * 0.45) * blow * 0.045 * waveW;
+    const srcH = natH / strips;
+    const srcY = natH - (i + 1) * srcH;
+    ctx.save();
+    ctx.translate(dx, -(i + 1) * sh + sh);
+    ctx.rotate(tilt);
+    ctx.drawImage(beautyImg, 0, srcY, natW, srcH, -W / 2, -sh - 0.6, W, sh + 1.2);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 /* ---------- 海滨物品 ---------- */
@@ -1523,12 +1563,18 @@ function drawBoat(ctx, t, wind) {
 }
 function drawGripBar(ctx, o, wind) {
   if (o.state !== 'grip' || !(o.grip < 1 || wind > 0.35)) return;
-  const bx = o.x - 16, by = o.y - o.barY;
+  const spriteTall = o.look === 'woman' && beautyReady();
+  const bx = o.x - 16, by = o.y - (spriteTall ? 78 : o.barY);
   ctx.fillStyle = 'rgba(0,0,0,.4)';
   ctx.beginPath(); ctx.roundRect(bx, by, 32, 6, 3); ctx.fill();
   ctx.fillStyle = o.grip > 0.4 ? '#ffd54f' : '#ff5252';
   ctx.beginPath(); ctx.roundRect(bx, by, 32 * Math.max(0.04, o.grip), 6, 3); ctx.fill();
 }
+
+/* ==================== 写真素材（AI 生成 + AI 抠像） ==================== */
+const beautyImg = new Image();
+beautyImg.src = 'assets/beauty/beauty3.png';
+const beautyReady = () => beautyImg.complete && beautyImg.naturalWidth > 0;
 
 /* ==================== 关卡与流程 ==================== */
 // 场景规划：热身两关 + 3 个主场景（场景2/3 占位，敬请期待）
